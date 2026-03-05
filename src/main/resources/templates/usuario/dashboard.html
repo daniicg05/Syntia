@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntia - Dashboard</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-primary px-4">
+    <span class="navbar-brand fw-bold">Syntia</span>
+    <div class="d-flex gap-2">
+        <a th:href="@{/logout}" class="btn btn-outline-light btn-sm">Cerrar sesión</a>
+    </div>
+</nav>
+
+<div class="container py-5">
+    <h2 class="mb-1">Bienvenido, <span th:text="${usuario.email}">usuario@email.com</span></h2>
+    <p class="text-muted mb-4">Panel de control de tu cuenta Syntia.</p>
+
+    <div class="row g-3">
+
+        <!-- Tarjeta Mi Perfil -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Mi Perfil</h5>
+                    <p class="card-text text-muted small">
+                        Completa tu perfil para recibir recomendaciones personalizadas.
+                    </p>
+                </div>
+                <div class="card-footer bg-white border-0">
+                    <a th:href="@{/usuario/perfil}" class="btn btn-primary btn-sm w-100">
+                        Ver / Editar perfil
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+</body>
+</html>
+

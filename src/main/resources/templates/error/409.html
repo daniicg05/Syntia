@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Error 409 - Conflicto</title>
+     <link rel="stylesheet" th:href="@{/css/bootstrap/bootstrap.css}" />
+	<script th:src="@{/js/bootstrap/bootstrap.bundle.js}"></script>
+</head>
+
+<body>
+    <h1>Error 409</h1>
+    <p th:text="${error}"></p>
+    <a th:href="@{/}">Volver al inicio</a>
+</body>
+</html>

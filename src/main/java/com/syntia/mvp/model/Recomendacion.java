@@ -1,0 +1,47 @@
+package com.syntia.mvp.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+/**
+ * Entidad que representa una recomendación generada por el motor de matching.
+ * Vincula un proyecto con una convocatoria, incluyendo puntuación y explicación.
+ */
+@Entity
+@Table(name = "recomendaciones")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Recomendacion {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proyecto_id", nullable = false)
+    private Proyecto proyecto;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "convocatoria_id", nullable = false)
+    private Convocatoria convocatoria;
+
+    @Column(nullable = false)
+    private int puntuacion;
+
+    @Column(columnDefinition = "TEXT")
+    private String explicacion;
+
+    @Column(name = "generada_en", nullable = false, updatable = false)
+    private LocalDateTime generadaEn;
+
+    @PrePersist
+    protected void onCreate() {
+        this.generadaEn = LocalDateTime.now();
+    }
+}
+

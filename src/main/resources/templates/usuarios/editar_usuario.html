@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Editar Usuario</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap/bootstrap.css}" />
+    <script th:src="@{/js/bootstrap/bootstrap.bundle.js}"></script>
+</head>
+<body>
+    <h1>Editar Usuario</h1>
+    
+    <form th:action="@{/usuarios/{id}/editar(id=${usuario.id})}" th:object="${usuario}" method="post">
+        <input type="hidden" th:field="*{id}" />
+        
+        <label for="username">Username:</label>
+        <input type="text" id="username" th:field="*{username}" required />
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" th:field="*{email}" required />
+
+        <label for="rol">Rol:</label>
+        <select id="rol" th:field="*{rol}">
+            <option th:each="rol : ${roles}" th:value="${rol}" th:text="${rol}"></option>
+        </select>
+
+        <button type="submit">Guardar Cambios</button>
+    </form>
+
+    <a th:href="@{/usuarios}">Volver a la lista</a>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntia – Registro</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+</head>
+<body class="bg-light">
+
+<div class="container d-flex justify-content-center align-items-center min-vh-100">
+    <div class="card shadow p-4" style="width: 100%; max-width: 440px;">
+
+        <h2 class="card-title text-center mb-4">Crear cuenta</h2>
+
+        <form th:action="@{/registro}" th:object="${registroDTO}" method="post" novalidate id="formRegistro">
+
+            <!-- Email -->
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" th:field="*{email}"
+                       class="form-control"
+                       th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'"
+                       placeholder="tu@email.com">
+                <div class="invalid-feedback" th:errors="*{email}"></div>
+                <span id="jsErrorEmail" class="text-danger small"></span>
+                <div class="text-danger small mt-1" th:if="${errorEmail}" th:text="${errorEmail}"></div>
+            </div>
+
+            <!-- Contraseña -->
+            <div class="mb-3">
+                <label for="password" class="form-label">Contraseña</label>
+                <input type="password" id="password" th:field="*{password}"
+                       class="form-control"
+                       th:classappend="${#fields.hasErrors('password')} ? 'is-invalid'"
+                       placeholder="Mínimo 4 caracteres">
+                <div class="invalid-feedback" th:errors="*{password}"></div>
+                <span id="jsErrorPassword" class="text-danger small"></span>
+            </div>
+
+            <!-- Confirmar contraseña -->
+            <div class="mb-3">
+                <label for="confirmarPassword" class="form-label">Confirmar contraseña</label>
+                <input type="password" id="confirmarPassword" th:field="*{confirmarPassword}"
+                       class="form-control"
+                       th:classappend="${#fields.hasErrors('confirmarPassword')} ? 'is-invalid'"
+                       placeholder="Repite la contraseña">
+                <div class="invalid-feedback" th:errors="*{confirmarPassword}"></div>
+                <span id="jsErrorConfirmar" class="text-danger small"></span>
+                <div class="text-danger small mt-1" th:if="${errorPassword}" th:text="${errorPassword}"></div>
+            </div>
+
+            <div class="d-grid mt-4">
+                <button type="submit" class="btn btn-primary">Registrarse</button>
+            </div>
+        </form>
+
+        <hr>
+        <p class="text-center mb-0">
+            ¿Ya tienes cuenta? <a th:href="@{/login}">Inicia sesión</a>
+        </p>
+
+    </div>
+</div>
+
+<script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/javascript/registro.js}"></script>
+</body>
+</html>

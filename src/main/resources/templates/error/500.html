@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Error 500 - Error del Servidor</title>
+</head>
+<body>
+    <h1>Error 500 - Algo salió mal</h1>
+    <p th:text="${error}"></p>
+    <a th:href="@{/}">Volver al inicio</a>
+</body>
+</html>
