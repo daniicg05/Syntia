@@ -85,15 +85,6 @@ public class AuthController {
         return "redirect:/login";
     }
 
-    /**
-     * Dashboard del administrador.
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/admin/dashboard")
-    public String adminDashboard(Authentication authentication, Model model) {
-        addUsuarioToModel(authentication, model);
-        return "admin/dashboard";
-    }
 
     /**
      * Dashboard del usuario final con datos reales: proyectos, top recomendaciones y roadmap.
@@ -135,9 +126,5 @@ public class AuthController {
         return usuarioService.buscarPorEmail(authentication.getName())
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "Usuario no encontrado: " + authentication.getName()));
-    }
-
-    private void addUsuarioToModel(Authentication authentication, Model model) {
-        model.addAttribute("usuario", resolverUsuario(authentication));
     }
 }

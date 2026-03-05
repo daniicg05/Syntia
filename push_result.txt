@@ -1,0 +1,14 @@
+[preproduction 8622f57] Fase 2: Gestion de proyectos - CRUD completo con ProyectoService, ProyectoController y vistas Thymeleaf
+ 9 files changed, 574 insertions(+)
+ create mode 100644 push_fase2.bat
+ create mode 100644 src/main/java/com/syntia/mvp/controller/ProyectoController.java
+ create mode 100644 src/main/java/com/syntia/mvp/model/dto/ProyectoDTO.java
+ create mode 100644 src/main/java/com/syntia/mvp/service/ProyectoService.java
+ create mode 100644 src/main/resources/static/javascript/proyecto.js
+ create mode 100644 src/main/resources/templates/usuario/proyectos/detalle.html
+ create mode 100644 src/main/resources/templates/usuario/proyectos/formulario.html
+ create mode 100644 src/main/resources/templates/usuario/proyectos/lista.html
+git: 'credential-manager-core' is not a git command. See 'git --help'.
+To https://github.com/daniicg05/Syntia.git
+   158a552..8622f57  preproduction -> preproduction
+DONE 

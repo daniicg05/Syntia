@@ -64,6 +64,8 @@ erDiagram
 
 ## 2. Diagrama de Clases UML
 
+> **Actualizado a 2026-03-05** — Refleja el estado real de la implementación (fases 1–6).
+
 ```mermaid
 classDiagram
     class Rol {
@@ -119,8 +121,8 @@ classDiagram
     class JwtService {
         -String secretKey
         -long expiration
-        +generarToken(usuario) String
-        +validarToken(token) boolean
+        +generarToken(email, rol) String
+        +validarToken(token, username) boolean
         +extraerUsername(token) String
         +extraerRol(token) String
     }
@@ -135,46 +137,71 @@ classDiagram
     }
 
     class UsuarioService {
-        +registrar(email, password) Usuario
-        +login(email, password) String
-        +buscarPorEmail(email) Usuario
-        +gestionarUsuarios() List~Usuario~
+        +registrar(email, password, rol) Usuario
+        +buscarPorEmail(email) Optional~Usuario~
+        +buscarPorId(id) Optional~Usuario~
+        +obtenerTodos() List~Usuario~
+        +eliminar(id) void
+        +cambiarRol(id, nuevoRol) Usuario
     }
 
     class PerfilService {
-        +guardarPerfil(usuarioId, perfil) Perfil
-        +obtenerPerfil(usuarioId) Perfil
+        +tienePerfil(usuarioId) boolean
+        +obtenerPerfil(usuarioId) Optional~Perfil~
+        +crearPerfil(usuario, dto) Perfil
+        +actualizarPerfil(usuarioId, dto) Perfil
+        +toDTO(perfil) PerfilDTO
     }
 
     class ProyectoService {
-        +crearProyecto(usuarioId, proyecto) Proyecto
         +obtenerProyectos(usuarioId) List~Proyecto~
+        +obtenerPorId(id, usuarioId) Proyecto
+        +crear(usuario, dto) Proyecto
+        +actualizar(id, usuarioId, dto) Proyecto
+        +eliminar(id, usuarioId) void
+        +toDTO(proyecto) ProyectoDTO
     }
 
     class MotorMatchingService {
         +generarRecomendaciones(proyecto) List~Recomendacion~
-        +priorizarOportunidades(proyecto, convocatorias) List~Recomendacion~
+    }
+
+    class RecomendacionService {
+        +obtenerPorProyecto(proyectoId) List~RecomendacionDTO~
+        +contarPorProyecto(proyectoId) long
     }
 
     class ConvocatoriaService {
-        +recuperarConvocatorias() List~Convocatoria~
-        +filtrarPorProyecto(proyecto) List~Convocatoria~
+        +obtenerTodas() List~Convocatoria~
+        +obtenerPorId(id) Convocatoria
+        +crear(dto) Convocatoria
+        +actualizar(id, dto) Convocatoria
+        +eliminar(id) void
+        +toDTO(convocatoria) ConvocatoriaDTO
+    }
+
+    class DashboardService {
+        +obtenerTopRecomendacionesPorProyecto(usuarioId, topN) Map
+        +obtenerRoadmap(usuarioId) List~RoadmapItem~
+        +contarTotalRecomendaciones(usuarioId) long
     }
 
     Usuario --> Rol : tiene
-    Usuario "1" --> "1" Perfil
-    Usuario "1" --> "0..*" Proyecto
-    Proyecto "1" --> "0..*" Recomendacion
-    Recomendacion "0..*" --> "1" Convocatoria
+    Usuario "1" --> "1" Perfil : tiene
+    Usuario "1" --> "0..*" Proyecto : crea
+    Proyecto "1" --> "0..*" Recomendacion : genera
+    Recomendacion "0..*" --> "1" Convocatoria : referencia
     JwtAuthenticationFilter --> JwtService : usa
-    CustomUserDetailsService --> Usuario
-    UsuarioService --> Usuario
-    UsuarioService --> JwtService : genera token
-    PerfilService --> Perfil
-    ProyectoService --> Proyecto
-    MotorMatchingService --> Recomendacion
-    MotorMatchingService --> ConvocatoriaService
-    ConvocatoriaService --> Convocatoria
+    CustomUserDetailsService --> UsuarioService : delega
+    UsuarioService --> Usuario : gestiona
+    PerfilService --> Perfil : gestiona
+    ProyectoService --> Proyecto : gestiona
+    MotorMatchingService --> Recomendacion : crea
+    MotorMatchingService --> ConvocatoriaService : consulta
+    RecomendacionService --> Recomendacion : lee
+    ConvocatoriaService --> Convocatoria : gestiona
+    DashboardService --> ProyectoService : usa
+    DashboardService --> RecomendacionService : usa
 ```
 
 ---

@@ -122,61 +122,203 @@ Todas las dependencias necesarias están incluidas. Ver tabla completa en `03-es
 
 ## 6. Estructura de Paquetes del Proyecto
 
-Estado actual implementado:
+Estado actual implementado (fases 1–6 completas):
 
 ```
 com.syntia.mvp
 ├── SyntiaMvpApplication.java
 ├── config/
-│   ├── SecurityConfig.java          ✅ Implementado
-│   ├── CorsConfig.java              ✅ Implementado
-│   ├── GlobalExceptionHandler.java  ✅ Implementado
-│   ├── RestExceptionHandler.java    ✅ Implementado
-│   └── WebExceptionHandler.java     ✅ Implementado
+│   ├── SecurityConfig.java           ✅ Dual filter chain: JWT (/api/**) + formulario (web)
+│   ├── CorsConfig.java               ✅ allowedOriginPatterns para dev; ajustar en prod
+│   ├── GlobalExceptionHandler.java   ✅ @RestControllerAdvice para /api/**
+│   ├── RestExceptionHandler.java     ✅ Limpiado (sin código muerto)
+│   └── WebExceptionHandler.java      ✅ Manejo de errores para vistas MVC
 ├── security/
-│   ├── JwtService.java              ✅ Implementado
-│   └── JwtAuthenticationFilter.java ✅ Implementado
+│   ├── JwtService.java               ✅ Generación, validación y extracción de claims
+│   └── JwtAuthenticationFilter.java  ✅ Filtro OncePerRequestFilter
 ├── controller/
-│   ├── AuthController.java          ✅ Implementado
-│   └── CustomErrorController.java   ✅ Implementado
+│   ├── AuthController.java           ✅ Login, registro, dashboard usuario/admin
+│   ├── PerfilController.java         ✅ GET/POST /usuario/perfil
+│   ├── ProyectoController.java       ✅ CRUD /usuario/proyectos
+│   ├── RecomendacionController.java  ✅ GET/POST /usuario/proyectos/{id}/recomendaciones
+│   ├── AdminController.java          ✅ CRUD /admin/usuarios y /admin/convocatorias
+│   └── CustomErrorController.java    ✅ Páginas de error personalizadas
+├── controller/api/
+│   ├── AuthRestController.java       ✅ POST /api/auth/login → JWT
+│   ├── PerfilRestController.java     ✅ GET/PUT /api/usuario/perfil
+│   ├── ProyectoRestController.java   ✅ CRUD /api/usuario/proyectos
+│   └── RecomendacionRestController.java ✅ GET + POST /generar
 ├── model/
-│   ├── Usuario.java                 ✅ Implementado
-│   ├── Rol.java                     ✅ Implementado (enum: ADMIN, USUARIO)
-│   ├── Perfil.java                  ✅ Implementado
-│   ├── Proyecto.java                ✅ Implementado
-│   ├── Convocatoria.java            ✅ Implementado
-│   ├── Recomendacion.java           ✅ Implementado
-│   └── ErrorResponse.java           ✅ Implementado
+│   ├── Usuario.java                  ✅ @Entity, Lombok, BCrypt password
+│   ├── Rol.java                      ✅ enum: ADMIN, USUARIO
+│   ├── Perfil.java                   ✅ @OneToOne con Usuario
+│   ├── Proyecto.java                 ✅ @ManyToOne con Usuario
+│   ├── Convocatoria.java             ✅ Catálogo global de convocatorias
+│   ├── Recomendacion.java            ✅ Proyecto + Convocatoria + puntuacion
+│   └── ErrorResponse.java            ✅ DTO para errores REST
+├── model/dto/
+│   ├── RegistroDTO.java              ✅ Registro con confirmación de contraseña
+│   ├── PerfilDTO.java                ✅ @NotBlank, @Size
+│   ├── ProyectoDTO.java              ✅ @NotBlank, @Size
+│   ├── RecomendacionDTO.java         ✅ Aplana relación LAZY para vistas
+│   ├── ConvocatoriaDTO.java          ✅ @NotBlank, @Size (getters/setters explícitos)
+│   ├── LoginRequestDTO.java          ✅ @Email, @NotBlank
+│   └── LoginResponseDTO.java         ✅ token + email + rol + expiresIn
 ├── repository/
-│   ├── UsuarioRepository.java       ✅ Implementado
-│   ├── PerfilRepository.java        ✅ Implementado
-│   ├── ProyectoRepository.java      ✅ Implementado
-│   ├── ConvocatoriaRepository.java  ✅ Implementado
-│   └── RecomendacionRepository.java ✅ Implementado
+│   ├── UsuarioRepository.java        ✅ findByEmail, existsByEmail
+│   ├── PerfilRepository.java         ✅ findByUsuarioId
+│   ├── ProyectoRepository.java       ✅ findByUsuarioId
+│   ├── ConvocatoriaRepository.java   ✅ filtrar() JPQL, sectores/tipos distintos
+│   └── RecomendacionRepository.java  ✅ findByProyectoId, deleteByProyectoId, countByProyectoId
 └── service/
-    ├── CustomUserDetailsService.java ✅ Implementado
-    └── UsuarioService.java           ✅ Implementado
+    ├── CustomUserDetailsService.java  ✅ Carga por email para Spring Security
+    ├── UsuarioService.java            ✅ registrar, buscar, obtenerTodos, eliminar, cambiarRol
+    ├── PerfilService.java             ✅ tienePerfil, obtenerPerfil, crear, actualizar, toDTO
+    ├── ProyectoService.java           ✅ CRUD + verificarPropiedad + toDTO
+    ├── MotorMatchingService.java      ✅ Scoring rule-based (sector, ubicación, nacional, keywords)
+    ├── RecomendacionService.java      ✅ obtenerPorProyecto, contarPorProyecto
+    ├── ConvocatoriaService.java       ✅ CRUD completo + toDTO
+    └── DashboardService.java          ✅ topRecomendaciones, roadmap, contarTotal, RoadmapItem record
 ```
 
-Pendiente de implementar en siguientes hitos:
-- `controller/api/` — Controladores REST
-- `service/PerfilService.java`
-- `service/ProyectoService.java`
-- `service/MotorMatchingService.java`
+### Recursos estáticos y plantillas
 
-## 7. Estado de la Deuda Técnica (resuelto en 2026-03-05)
+```
+src/main/resources/
+├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, variables de entorno
+├── data-test.sql                     ✅ 2 usuarios, 1 perfil, 8 convocatorias, 1 proyecto
+├── static/
+│   ├── bootstrap/                    ✅ Bootstrap 5 CSS
+│   ├── bootsprap/                    ✅ Bootstrap 5 JS (nombre con typo, no renombrar)
+│   └── javascript/
+│       ├── registro.js               ✅ Validación contraseñas + email frontend
+│       ├── perfil.js                 ✅ Validaciones formulario perfil
+│       ├── proyecto.js               ✅ Validaciones + contador caracteres
+│       └── dashboard.js              ✅ Contador días restantes en roadmap
+└── templates/
+    ├── login.html
+    ├── registro.html
+    ├── error.html
+    ├── error/403.html, 404.html, 409.html, 500.html
+    ├── usuario/
+    │   ├── dashboard.html            ✅ Métricas, top recomendaciones, roadmap
+    │   ├── perfil.html               ✅ Formulario crear/editar perfil
+    │   └── proyectos/
+    │       ├── lista.html
+    │       ├── formulario.html       ✅ Crear y editar (vista unificada)
+    │       ├── detalle.html
+    │       └── recomendaciones.html  ✅ Filtros, puntuación, aviso legal
+    └── admin/
+        ├── dashboard.html            ✅ Métricas del sistema
+        ├── usuarios/
+        │   ├── lista.html            ✅ Cambio de rol inline + modal eliminar
+        │   └── detalle.html          ✅ Datos + proyectos del usuario
+        └── convocatorias/
+            ├── lista.html            ✅ Tabla con fechas urgentes resaltadas
+            └── formulario.html       ✅ Crear y editar convocatoria
+```
 
-Todos los problemas detectados en la auditoría inicial han sido corregidos:
+## 7. Referencia de la API REST
 
-| Problema | Estado |
-|----------|--------|
-| Imports de `es.fempa.acd` en `SecurityConfig`, `AuthController`, `CustomUserDetailsService` | ✅ Corregido |
-| `CorsConfig`: `addAllowedOrigin("*")` incompatible con `allowCredentials` | ✅ Corregido → `setAllowedOriginPatterns` |
-| `GlobalExceptionHandler`: dependencia `spring-data-rest` inexistente | ✅ Corregido → `jakarta.persistence.EntityNotFoundException` |
-| `RestExceptionHandler`: código muerto con referencias al proyecto anterior | ✅ Limpiado |
-| `AuthController`: `ROLE_CLIENTE` en vez de `ROLE_USUARIO` | ✅ Corregido |
-| Modelos de dominio ausentes | ✅ Creados (Usuario, Rol, Perfil, Proyecto, Convocatoria, Recomendacion) |
-| Repositorios ausentes | ✅ Creados (5 repositorios JPA) |
-| `application.properties` vacío | ✅ Configurado (PostgreSQL, JPA, Thymeleaf, JWT) |
-| `pom.xml`: Thymeleaf, jjwt, Bean Validation faltantes | ✅ Añadidas |
+Todos los endpoints REST están bajo `/api/**` y usan autenticación JWT.  
+Cabecera requerida: `Authorization: Bearer <token>`
+
+### Autenticación
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `POST` | `/api/auth/login` | ❌ | Credenciales → JWT |
+
+**Body request:** `{ "email": "...", "password": "..." }`  
+**Body response:** `{ "token": "...", "email": "...", "rol": "...", "expiresIn": 86400000 }`
+
+### Perfil
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `GET` | `/api/usuario/perfil` | JWT | Ver perfil del usuario autenticado |
+| `PUT` | `/api/usuario/perfil` | JWT | Crear o actualizar perfil |
+
+### Proyectos
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `GET` | `/api/usuario/proyectos` | JWT | Listar proyectos |
+| `GET` | `/api/usuario/proyectos/{id}` | JWT | Ver proyecto por ID |
+| `POST` | `/api/usuario/proyectos` | JWT | Crear proyecto |
+| `PUT` | `/api/usuario/proyectos/{id}` | JWT | Editar proyecto |
+| `DELETE` | `/api/usuario/proyectos/{id}` | JWT | Eliminar proyecto |
+
+### Recomendaciones
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `GET` | `/api/usuario/proyectos/{id}/recomendaciones` | JWT | Ver recomendaciones del proyecto |
+| `POST` | `/api/usuario/proyectos/{id}/recomendaciones/generar` | JWT | Disparar motor de matching |
+
+### Códigos de respuesta estándar
+
+| Código | Situación |
+|--------|-----------|
+| `200` | Éxito |
+| `400` | Validación fallida (`MethodArgumentNotValidException`) |
+| `401` | Credenciales incorrectas |
+| `403` | Sin permisos (`AccessDeniedException`) |
+| `404` | Recurso no encontrado (`EntityNotFoundException`) |
+| `409` | Conflicto de estado (`IllegalStateException`) |
+| `500` | Error interno del servidor |
+
+---
+
+## 8. Instrucciones de Despliegue
+
+### 8.1. Entorno de Desarrollo
+
+```bash
+# Clonar y arrancar
+git clone https://github.com/daniicg05/Syntia.git
+cd Syntia
+./mvnw spring-boot:run
+```
+
+Acceder en: `http://localhost:8080`  
+Datos de prueba: ejecutar `src/main/resources/data-test.sql` una vez creadas las tablas.
+
+### 8.2. Entorno de Producción
+
+Variables de entorno requeridas:
+
+| Variable | Descripción |
+|----------|-------------|
+| `SPRING_DATASOURCE_URL` | URL completa JDBC de PostgreSQL |
+| `SPRING_DATASOURCE_USERNAME` | Usuario de BD |
+| `SPRING_DATASOURCE_PASSWORD` | Contraseña de BD |
+| `JWT_SECRET` | Clave secreta JWT (mínimo 32 caracteres, base64) |
+| `JWT_EXPIRATION` | Expiración del token en milisegundos (ej: `86400000`) |
+
+Configuración recomendada para producción (sobreescribir en `application-prod.properties`):
+
+```properties
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=false
+spring.thymeleaf.cache=true
+logging.level.org.springframework.security=INFO
+logging.level.com.syntia.mvp=INFO
+```
+
+> **Importante:** Cambiar `allowedOriginPatterns("*")` en `CorsConfig.java` por el dominio real antes del despliegue.
+
+---
+
+## 9. Deuda Técnica Registrada
+
+| Prioridad | Componente | Descripción |
+|-----------|-----------|-------------|
+| 🟡 Media | `AdminController.dashboard()` | N+1 queries para métricas → migrar a query `COUNT` agregada |
+| 🟡 Media | `RecomendacionController` | Filtros en memoria, no en BD → escala mal con volumen alto |
+| 🟡 Media | `perfil-ver.html` | Vista solo lectura ausente; actualmente perfil.html hace las veces de vista y edición |
+| 🟡 Media | `application-prod.properties` | No existe perfil Spring para producción |
+| 🟢 Baja | `06-diagramas.md` | Actualizar diagramas de secuencia con flujos de las fases 3–6 |
+| 🟢 Baja | Paginación | Sin paginación en listados de usuarios y convocatorias (admin) |
+| 🟢 Baja | `bootsprap/` typo | Carpeta de JS de Bootstrap con nombre erróneo; corregir requiere actualizar todas las vistas |
 

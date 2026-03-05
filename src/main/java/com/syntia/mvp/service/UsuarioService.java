@@ -83,5 +83,21 @@ public class UsuarioService {
     public void eliminar(Long id) {
         usuarioRepository.deleteById(id);
     }
+
+    /**
+     * Cambia el rol de un usuario.
+     *
+     * @param id      ID del usuario
+     * @param nuevoRol nuevo rol a asignar
+     * @throws jakarta.persistence.EntityNotFoundException si el usuario no existe
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public Usuario cambiarRol(Long id, Rol nuevoRol) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Usuario no encontrado: " + id));
+        usuario.setRol(nuevoRol);
+        return usuarioRepository.save(usuario);
+    }
 }
 
