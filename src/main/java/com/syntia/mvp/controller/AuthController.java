@@ -3,6 +3,7 @@ package com.syntia.mvp.controller;
 import com.syntia.mvp.model.Rol;
 import com.syntia.mvp.model.Usuario;
 import com.syntia.mvp.model.dto.RegistroDTO;
+import com.syntia.mvp.service.DashboardService;
 import com.syntia.mvp.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,9 +26,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class AuthController {
 
     private final UsuarioService usuarioService;
+    private final DashboardService dashboardService;
 
-    public AuthController(UsuarioService usuarioService) {
+    public AuthController(UsuarioService usuarioService, DashboardService dashboardService) {
         this.usuarioService = usuarioService;
+        this.dashboardService = dashboardService;
     }
 
     /**
@@ -93,12 +96,19 @@ public class AuthController {
     }
 
     /**
-     * Dashboard del usuario final.
+     * Dashboard del usuario final con datos reales: proyectos, top recomendaciones y roadmap.
      */
     @PreAuthorize("hasRole('USUARIO')")
     @GetMapping("/usuario/dashboard")
     public String userDashboard(Authentication authentication, Model model) {
-        addUsuarioToModel(authentication, model);
+        Usuario usuario = resolverUsuario(authentication);
+        model.addAttribute("usuario", usuario);
+        model.addAttribute("topRecomendaciones",
+                dashboardService.obtenerTopRecomendacionesPorProyecto(usuario.getId(), 3));
+        model.addAttribute("roadmap",
+                dashboardService.obtenerRoadmap(usuario.getId()));
+        model.addAttribute("totalRecomendaciones",
+                dashboardService.contarTotalRecomendaciones(usuario.getId()));
         return "usuario/dashboard";
     }
 
@@ -119,12 +129,15 @@ public class AuthController {
     }
 
     /**
-     * Añade el objeto Usuario al modelo para las vistas Thymeleaf.
+     * Resuelve el {@link Usuario} desde el contexto de autenticación.
      */
+    private Usuario resolverUsuario(Authentication authentication) {
+        return usuarioService.buscarPorEmail(authentication.getName())
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Usuario no encontrado: " + authentication.getName()));
+    }
+
     private void addUsuarioToModel(Authentication authentication, Model model) {
-        String email = authentication.getName();
-        Usuario usuario = usuarioService.buscarPorEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + email));
-        model.addAttribute("usuario", usuario);
+        model.addAttribute("usuario", resolverUsuario(authentication));
     }
 }
