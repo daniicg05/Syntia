@@ -29,13 +29,7 @@ La arquitectura de Syntia garantizará escalabilidad, modularidad y seguridad. E
 
 El backend gestionará perfiles, proyectos y resultados del motor de IA, asegurando integridad y confidencialidad de los datos. El motor de inteligencia artificial interpretará la información del usuario, identificará variables clave y realizará el matching con oportunidades públicas y sistemas de financiación, generando explicaciones comprensibles sobre la relevancia de cada recomendación.
 
-Se implementarán mecanismos de seguridad que incluyen:
-- **Autenticación JWT** para endpoints REST, con tokens firmados con HMAC-SHA256 y expiración configurable.
-- **Autenticación por formulario** con sesión para las vistas Thymeleaf.
-- **Política CORS** configurada para permitir el consumo seguro de la API desde orígenes autorizados.
-- **Cifrado de contraseñas** con BCrypt.
-- **Control de permisos por rol** (`ADMIN`, `USUARIO`) con Spring Security.
-- **Validación de entradas** con Bean Validation (`@Valid`, `@NotBlank`, etc.).
+Se implementarán mecanismos de seguridad como autenticación robusta, cifrado de datos y control de permisos por rol, así como validaciones de información para prevenir accesos no autorizados.
 
 La plataforma incluirá un aviso legal indicando que las recomendaciones se basan en información pública y que corresponde al usuario verificar los requisitos oficiales antes de presentar solicitudes.
 
@@ -46,10 +40,8 @@ El despliegue contemplará un entorno de desarrollo documentado y un entorno de 
 ### 6.1. Sistema de Registro y Autenticación
 - Registro de nuevos usuarios.
 - Inicio y cierre de sesión.
-- Gestión segura de credenciales (contraseñas cifradas con BCrypt).
-- Autenticación híbrida: formulario de login con sesión (vistas Thymeleaf) + JWT para endpoints REST/API.
-- Política CORS configurada para permitir el acceso seguro desde orígenes autorizados.
-- Diferenciación de roles: `ADMIN` / `USUARIO`.
+- Gestión segura de credenciales.
+- Diferenciación de roles: Usuario final / Administrador.
 
 ### 6.2. Captura y Gestión del Perfil del Usuario
 - Información estructurada: sector, ubicación, tipo de entidad, objetivos, necesidades de financiación.
@@ -80,16 +72,8 @@ El despliegue contemplará un entorno de desarrollo documentado y un entorno de 
 - **Exclusiones:** inteligencia empresarial avanzada, análisis estadístico detallado.
 
 ## 7. Requisitos No Funcionales
-- **Seguridad:**
-  - Autenticación JWT (JSON Web Tokens) para endpoints REST con tokens firmados HMAC-SHA256 y expiración configurable.
-  - Autenticación por formulario con sesión HTTP para vistas Thymeleaf.
-  - Control de acceso por roles (`ADMIN`, `USUARIO`) con Spring Security.
-  - Política CORS configurada para controlar el acceso cross-origin a la API.
-  - Cifrado de contraseñas con BCrypt.
-  - Comunicación HTTPS en producción.
-  - Validación de entradas con Bean Validation.
-  - Prevención de XSS (escape automático de Thymeleaf), inyección SQL (JPA parametrizado) y CSRF.
-- **Usabilidad:** interfaz intuitiva, profesional y completamente responsive en todos los dispositivos (Bootstrap 5).
+- **Seguridad:** autenticación robusta, control de acceso por roles, cifrado de datos, HTTPS, validación de entradas.
+- **Usabilidad:** interfaz intuitiva, profesional y completamente responsive en todos los dispositivos.
 - **Escalabilidad:** arquitectura modular que permita integrar nuevas fuentes de datos en el futuro.
 - **Legal:** aviso legal sobre el carácter orientativo de las recomendaciones.
 
