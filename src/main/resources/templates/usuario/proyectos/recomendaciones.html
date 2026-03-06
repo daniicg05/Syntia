@@ -8,14 +8,7 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-dark bg-primary px-4">
-    <span class="navbar-brand fw-bold">Syntia</span>
-    <div class="d-flex gap-2">
-        <a th:href="@{/usuario/proyectos}" class="btn btn-outline-light btn-sm">Mis Proyectos</a>
-        <a th:href="@{/usuario/dashboard}" class="btn btn-outline-light btn-sm">Dashboard</a>
-        <a th:href="@{/logout}" class="btn btn-light btn-sm">Cerrar sesión</a>
-    </div>
-</nav>
+<nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
 
 <div class="container py-5">
 
@@ -43,7 +36,7 @@
         <!-- Botón generar recomendaciones -->
         <form th:action="@{/usuario/proyectos/{id}/recomendaciones/generar(id=${proyecto.id})}" method="post">
             <button type="submit" class="btn btn-primary">
-                ⚡ Generar / Actualizar recomendaciones
+                🤖 Analizar con IA
             </button>
         </form>
     </div>
@@ -67,8 +60,10 @@
     <!-- Sin recomendaciones aún -->
     <div th:if="${totalSinFiltro == 0}" class="card shadow-sm mb-4">
         <div class="card-body text-center py-5">
-            <p class="text-muted mb-3">Aún no hay recomendaciones para este proyecto.</p>
-            <p class="text-muted small">Pulsa <strong>Generar / Actualizar recomendaciones</strong> para iniciar el análisis.</p>
+            <div class="fs-1 mb-2">🤖</div>
+            <p class="text-muted mb-1">Aún no hay recomendaciones para este proyecto.</p>
+            <p class="text-muted small">Pulsa <strong>Analizar con IA</strong> para que el motor de inteligencia artificial
+               evalúe las convocatorias disponibles y genere recomendaciones personalizadas.</p>
         </div>
     </div>
 
@@ -133,6 +128,17 @@
                                     <span class="badge bg-secondary me-1" th:if="${rec.sector}" th:text="${rec.sector}"></span>
                                     <span class="badge bg-info text-dark me-1" th:if="${rec.ubicacion}" th:text="${rec.ubicacion}"></span>
                                     <span class="badge bg-light text-dark border" th:if="${rec.fuente}" th:text="${rec.fuente}"></span>
+                                    <!-- Badge IA -->
+                                    <span th:if="${rec.usadaIa}"
+                                          class="badge bg-success ms-1"
+                                          title="Compatibilidad evaluada por inteligencia artificial (OpenAI)">
+                                        🤖 Analizado por IA
+                                    </span>
+                                    <span th:unless="${rec.usadaIa}"
+                                          class="badge bg-light text-muted border ms-1"
+                                          title="Compatibilidad evaluada por el motor de reglas">
+                                        ⚙️ Motor de reglas
+                                    </span>
                                 </div>
                                 <p class="text-muted small mb-2" th:text="${rec.explicacion}"></p>
                                 <p class="small mb-0" th:if="${rec.fechaCierre}">
@@ -176,6 +182,7 @@
 </div>
 
 <script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
 

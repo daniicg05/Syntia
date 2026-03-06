@@ -21,6 +21,13 @@ public interface ConvocatoriaRepository extends JpaRepository<Convocatoria, Long
     List<Convocatoria> findByTipo(String tipo);
 
     /**
+     * Verifica si ya existe una convocatoria con el mismo titulo (ignorando mayusculas) y fuente.
+     * Usado para evitar duplicados al importar desde BDNS.
+     * Spring Data JPA genera la implementacion automaticamente por convención de nombre.
+     */
+    boolean existsByTituloIgnoreCaseAndFuente(String titulo, String fuente);
+
+    /**
      * Filtra convocatorias por sector y/o ubicación y/o tipo.
      * Los parámetros nulos o vacíos se ignoran.
      */

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Fragment: navbar-admin
+  Uso: <nav th:replace="~{fragments/navbar-admin :: navbar-admin}"></nav>
+-->
+<nav th:fragment="navbar-admin" class="navbar navbar-dark bg-dark px-4">
+    <a th:href="@{/admin/dashboard}" class="navbar-brand fw-bold text-decoration-none">
+        Syntia <span class="badge bg-danger ms-1 small">Admin</span>
+    </a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a th:href="@{/admin/usuarios}"       class="btn btn-outline-light btn-sm">Usuarios</a>
+        <a th:href="@{/admin/convocatorias}"   class="btn btn-outline-light btn-sm">Convocatorias</a>
+        <a th:href="@{/admin/dashboard}"       class="btn btn-outline-light btn-sm">Dashboard</a>
+        <a th:href="@{/logout}"                class="btn btn-light btn-sm">Cerrar sesión</a>
+    </div>
+</nav>
+
+</body>
+</html>
+

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Fragment: navbar-usuario
+  Uso: <nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
+-->
+<nav th:fragment="navbar-usuario" class="navbar navbar-dark bg-primary px-4">
+    <a th:href="@{/usuario/dashboard}" class="navbar-brand fw-bold text-decoration-none">Syntia</a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a th:href="@{/usuario/perfil/ver}"  class="btn btn-outline-light btn-sm">Mi Perfil</a>
+        <a th:href="@{/usuario/proyectos}"   class="btn btn-outline-light btn-sm">Mis Proyectos</a>
+        <a th:href="@{/usuario/dashboard}"   class="btn btn-outline-light btn-sm">Dashboard</a>
+        <a th:href="@{/logout}"              class="btn btn-light btn-sm">Cerrar sesión</a>
+    </div>
+</nav>
+
+</body>
+</html>
+

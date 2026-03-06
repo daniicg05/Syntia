@@ -36,6 +36,11 @@ public class Recomendacion {
     @Column(columnDefinition = "TEXT")
     private String explicacion;
 
+    /** true = generada por OpenAI, false = motor rule-based (fallback). */
+    @Column(name = "usada_ia", nullable = false)
+    @Builder.Default
+    private boolean usadaIa = false;
+
     @Column(name = "generada_en", nullable = false, updatable = false)
     private LocalDateTime generadaEn;
 

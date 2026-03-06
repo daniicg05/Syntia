@@ -1,82 +1,123 @@
 package com.syntia.mvp.service;
 
 import com.syntia.mvp.model.Convocatoria;
+import com.syntia.mvp.model.Perfil;
 import com.syntia.mvp.model.Proyecto;
 import com.syntia.mvp.model.Recomendacion;
 import com.syntia.mvp.repository.ConvocatoriaRepository;
 import com.syntia.mvp.repository.RecomendacionRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Motor de interpretación y matching de Syntia.
  * <p>
- * Implementa un scoring basado en reglas (rule-based) tal como establece
- * la documentación del proyecto, que excluye explícitamente ML/IA avanzada.
+ * Estrategia híbrida:
+ * <ol>
+ *   <li><b>OpenAI (primario):</b> análisis semántico del perfil + proyecto vs. convocatoria.
+ *       Genera puntuación 0-100 y explicación comprensible en lenguaje natural.</li>
+ *   <li><b>Rule-based (fallback):</b> scoring determinista basado en campos estructurados.
+ *       Se activa automáticamente si la API de OpenAI no está configurada o falla.</li>
+ * </ol>
  * <p>
- * Algoritmo de scoring (máximo 100 puntos):
+ * Algoritmo rule-based (fallback, máximo 100 puntos):
  * <ul>
- *   <li>+40 pts — sector del proyecto coincide exactamente con el sector de la convocatoria</li>
- *   <li>+30 pts — ubicación del proyecto coincide exactamente con la ubicación de la convocatoria</li>
- *   <li>+20 pts — la convocatoria es de ámbito nacional (ubicacion == null o "Nacional")</li>
- *   <li>+10 pts — la descripción del proyecto contiene palabras clave del título de la convocatoria</li>
+ *   <li>+40 pts — sector del proyecto coincide con el sector de la convocatoria</li>
+ *   <li>+30 pts — ubicación del proyecto coincide con la ubicación de la convocatoria</li>
+ *   <li>+20 pts — la convocatoria es de ámbito nacional</li>
+ *   <li>+10 pts — la descripción del proyecto contiene palabras clave del título</li>
  * </ul>
- * Solo se incluyen recomendaciones con puntuación &gt; 0.
- * Los resultados se ordenan de mayor a menor puntuación.
  */
+@Slf4j
 @Service
 public class MotorMatchingService {
 
     private final ConvocatoriaRepository convocatoriaRepository;
     private final RecomendacionRepository recomendacionRepository;
+    private final PerfilService perfilService;
+    private final OpenAiMatchingService openAiMatchingService;
 
     public MotorMatchingService(ConvocatoriaRepository convocatoriaRepository,
-                                RecomendacionRepository recomendacionRepository) {
+                                RecomendacionRepository recomendacionRepository,
+                                PerfilService perfilService,
+                                OpenAiMatchingService openAiMatchingService) {
         this.convocatoriaRepository = convocatoriaRepository;
         this.recomendacionRepository = recomendacionRepository;
+        this.perfilService = perfilService;
+        this.openAiMatchingService = openAiMatchingService;
     }
 
     /**
      * Genera y persiste recomendaciones para un proyecto.
-     * Elimina las recomendaciones anteriores del proyecto antes de regenerarlas,
-     * garantizando que siempre están actualizadas con las convocatorias disponibles.
+     * Elimina las recomendaciones anteriores antes de regenerarlas.
+     * Usa OpenAI si está disponible; si no, aplica el motor rule-based.
      *
      * @param proyecto proyecto para el que se generan recomendaciones
      * @return lista de recomendaciones persistidas, ordenadas por puntuación desc
      */
     @Transactional
     public List<Recomendacion> generarRecomendaciones(Proyecto proyecto) {
-        // Eliminar recomendaciones anteriores para este proyecto
         recomendacionRepository.deleteByProyectoId(proyecto.getId());
 
-        List<Convocatoria> todasLasConvocatorias = convocatoriaRepository.findAll();
+        // Cargar el perfil del usuario (opcional: mejora el contexto para OpenAI)
+        Perfil perfil = perfilService.obtenerPerfil(proyecto.getUsuario().getId()).orElse(null);
+
+        List<Convocatoria> convocatorias = convocatoriaRepository.findAll();
         List<Recomendacion> recomendaciones = new ArrayList<>();
 
-        for (Convocatoria convocatoria : todasLasConvocatorias) {
-            int puntuacion = calcularPuntuacion(proyecto, convocatoria);
-            if (puntuacion > 0) {
+        for (Convocatoria convocatoria : convocatorias) {
+            OpenAiMatchingService.ResultadoIA resultado = evaluarConFallback(proyecto, perfil, convocatoria);
+
+            if (resultado.puntuacion() > 0) {
                 Recomendacion rec = Recomendacion.builder()
                         .proyecto(proyecto)
                         .convocatoria(convocatoria)
-                        .puntuacion(puntuacion)
-                        .explicacion(generarExplicacion(proyecto, convocatoria, puntuacion))
+                        .puntuacion(resultado.puntuacion())
+                        .explicacion(resultado.explicacion())
+                        .usadaIa(resultado.usadaIA())
                         .build();
                 recomendaciones.add(recomendacionRepository.save(rec));
             }
         }
 
-        // Ordenar por puntuación descendente antes de devolver
         recomendaciones.sort((a, b) -> Integer.compare(b.getPuntuacion(), a.getPuntuacion()));
+
+        log.info("Motor matching completado: proyecto={} convocatorias={} recomendaciones={}",
+                proyecto.getId(), convocatorias.size(), recomendaciones.size());
+
         return recomendaciones;
     }
 
+    // ── Evaluación con fallback ──────────────────────────────────────────────
+
     /**
-     * Calcula la puntuación de compatibilidad entre un proyecto y una convocatoria.
-     * Scoring basado en reglas documentadas (sin ML ni IA avanzada).
+     * Intenta evaluar con OpenAI. Si falla, aplica el motor rule-based.
      */
+    private OpenAiMatchingService.ResultadoIA evaluarConFallback(
+            Proyecto proyecto, Perfil perfil, Convocatoria convocatoria) {
+        try {
+            return openAiMatchingService.analizar(proyecto, perfil, convocatoria);
+        } catch (OpenAiClient.OpenAiUnavailableException e) {
+            log.debug("OpenAI no disponible, usando motor rule-based: {}", e.getMessage());
+            return evaluarRuleBase(proyecto, convocatoria);
+        }
+    }
+
+    // ── Motor rule-based (fallback) ──────────────────────────────────────────
+
+    private OpenAiMatchingService.ResultadoIA evaluarRuleBase(Proyecto proyecto, Convocatoria convocatoria) {
+        int puntuacion = calcularPuntuacion(proyecto, convocatoria);
+        String explicacion = puntuacion > 0
+                ? generarExplicacion(proyecto, convocatoria, puntuacion)
+                : "";
+        return new OpenAiMatchingService.ResultadoIA(puntuacion, explicacion, false);
+    }
+
     private int calcularPuntuacion(Proyecto proyecto, Convocatoria convocatoria) {
         int puntuacion = 0;
 
@@ -92,14 +133,14 @@ public class MotorMatchingService {
             puntuacion += 30;
         }
 
-        // +20 pts: convocatoria de ámbito nacional (sin restricción geográfica)
+        // +20 pts: convocatoria de ámbito nacional
         if (convocatoria.getUbicacion() == null
                 || convocatoria.getUbicacion().isBlank()
                 || convocatoria.getUbicacion().equalsIgnoreCase("Nacional")) {
             puntuacion += 20;
         }
 
-        // +10 pts: palabras clave del título de la convocatoria aparecen en la descripción
+        // +10 pts: palabras clave del título en la descripción del proyecto
         if (proyecto.getDescripcion() != null && convocatoria.getTitulo() != null
                 && contieneKeywords(proyecto.getDescripcion(), convocatoria.getTitulo())) {
             puntuacion += 10;
@@ -108,10 +149,6 @@ public class MotorMatchingService {
         return puntuacion;
     }
 
-    /**
-     * Comprueba si la descripción del proyecto contiene alguna palabra significativa
-     * (más de 4 caracteres) del título de la convocatoria.
-     */
     private boolean contieneKeywords(String descripcion, String titulo) {
         String descLower = descripcion.toLowerCase();
         String[] palabras = titulo.toLowerCase().split("\\s+");
@@ -123,10 +160,6 @@ public class MotorMatchingService {
         return false;
     }
 
-    /**
-     * Genera una explicación comprensible de por qué se recomienda esta convocatoria.
-     * Las explicaciones son legibles y orientadas al usuario final (no técnicas).
-     */
     private String generarExplicacion(Proyecto proyecto, Convocatoria convocatoria, int puntuacion) {
         StringBuilder sb = new StringBuilder();
 
@@ -145,7 +178,7 @@ public class MotorMatchingService {
         if (convocatoria.getUbicacion() == null
                 || convocatoria.getUbicacion().isBlank()
                 || convocatoria.getUbicacion().equalsIgnoreCase("Nacional")) {
-            sb.append("Esta convocatoria es de ámbito nacional, por lo que es accesible desde cualquier ubicación. ");
+            sb.append("Esta convocatoria es de ámbito nacional, accesible desde cualquier ubicación. ");
         }
 
         if (proyecto.getDescripcion() != null && convocatoria.getTitulo() != null
@@ -154,11 +187,10 @@ public class MotorMatchingService {
         }
 
         if (sb.isEmpty()) {
-            sb.append("Esta convocatoria puede ser de interés según tu perfil general.");
+            sb.append("Esta convocatoria puede ser de interés según tu perfil general. ");
         }
 
         sb.append("Puntuación de compatibilidad: ").append(puntuacion).append("/100.");
         return sb.toString().trim();
     }
 }
-

@@ -31,5 +31,44 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
      * Cuenta las recomendaciones de un proyecto.
      */
     long countByProyectoId(Long proyectoId);
+
+    /**
+     * Cuenta el total de recomendaciones del sistema en una sola query.
+     * Evita el patron N+1 que itere sobre proyectos.
+     */
+    @Query("SELECT COUNT(r) FROM Recomendacion r")
+    long countAll();
+
+    /**
+     * Filtra recomendaciones de un proyecto por tipo, sector y ubicacion delegando a BD.
+     * Sustituye el filtrado en memoria del controller.
+     * Los parametros nulos o vacios se ignoran (filtro opcional).
+     */
+    @Query("SELECT r FROM Recomendacion r JOIN r.convocatoria c " +
+           "WHERE r.proyecto.id = :proyectoId " +
+           "AND (:tipo      IS NULL OR :tipo      = '' OR c.tipo      = :tipo) " +
+           "AND (:sector    IS NULL OR :sector    = '' OR c.sector    = :sector) " +
+           "AND (:ubicacion IS NULL OR :ubicacion = '' OR c.ubicacion = :ubicacion) " +
+           "ORDER BY r.puntuacion DESC")
+    List<Recomendacion> filtrar(@Param("proyectoId") Long proyectoId,
+                                @Param("tipo")       String tipo,
+                                @Param("sector")     String sector,
+                                @Param("ubicacion")  String ubicacion);
+
+    /**
+     * Obtiene los tipos de convocatoria distintos para las recomendaciones de un proyecto.
+     * Usado para poblar el selector de filtros en la vista.
+     */
+    @Query("SELECT DISTINCT c.tipo FROM Recomendacion r JOIN r.convocatoria c " +
+           "WHERE r.proyecto.id = :proyectoId AND c.tipo IS NOT NULL ORDER BY c.tipo")
+    List<String> findTiposDistintosByProyectoId(@Param("proyectoId") Long proyectoId);
+
+    /**
+     * Obtiene los sectores distintos para las recomendaciones de un proyecto.
+     * Usado para poblar el selector de filtros en la vista.
+     */
+    @Query("SELECT DISTINCT c.sector FROM Recomendacion r JOIN r.convocatoria c " +
+           "WHERE r.proyecto.id = :proyectoId AND c.sector IS NOT NULL ORDER BY c.sector")
+    List<String> findSectoresDistintosByProyectoId(@Param("proyectoId") Long proyectoId);
 }
 

@@ -1,8 +1,11 @@
 package com.syntia.mvp.controller;
 
+import com.syntia.mvp.model.Proyecto;
 import com.syntia.mvp.model.Rol;
 import com.syntia.mvp.model.Usuario;
 import com.syntia.mvp.model.dto.ConvocatoriaDTO;
+import com.syntia.mvp.repository.ProyectoRepository;
+import com.syntia.mvp.repository.RecomendacionRepository;
 import com.syntia.mvp.service.ConvocatoriaService;
 import com.syntia.mvp.service.ProyectoService;
 import com.syntia.mvp.service.RecomendacionService;
@@ -24,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controlador del panel administrativo de Syntia.
@@ -44,15 +49,21 @@ public class AdminController {
     private final ConvocatoriaService convocatoriaService;
     private final ProyectoService proyectoService;
     private final RecomendacionService recomendacionService;
+    private final ProyectoRepository proyectoRepository;
+    private final RecomendacionRepository recomendacionRepository;
 
     public AdminController(UsuarioService usuarioService,
                            ConvocatoriaService convocatoriaService,
                            ProyectoService proyectoService,
-                           RecomendacionService recomendacionService) {
+                           RecomendacionService recomendacionService,
+                           ProyectoRepository proyectoRepository,
+                           RecomendacionRepository recomendacionRepository) {
         this.usuarioService = usuarioService;
         this.convocatoriaService = convocatoriaService;
         this.proyectoService = proyectoService;
         this.recomendacionService = recomendacionService;
+        this.proyectoRepository = proyectoRepository;
+        this.recomendacionRepository = recomendacionRepository;
     }
 
     // ─────────────────────────────────────────────
@@ -61,23 +72,16 @@ public class AdminController {
 
     /**
      * Dashboard del administrador con métricas básicas del sistema.
+     * Usa countAll() directo para evitar el patron N+1.
      */
     @GetMapping("/dashboard")
     public String dashboard(Authentication authentication, Model model) {
         model.addAttribute("adminEmail", authentication.getName());
-        model.addAttribute("totalUsuarios",   usuarioService.obtenerTodos().size());
-        model.addAttribute("totalConvocatorias", convocatoriaService.obtenerTodas().size());
-        // Métricas de proyectos y recomendaciones agregadas
-        List<Usuario> usuarios = usuarioService.obtenerTodos();
-        long totalProyectos = usuarios.stream()
-                .mapToLong(u -> proyectoService.obtenerProyectos(u.getId()).size())
-                .sum();
-        long totalRecomendaciones = usuarios.stream()
-                .flatMap(u -> proyectoService.obtenerProyectos(u.getId()).stream())
-                .mapToLong(p -> recomendacionService.contarPorProyecto(p.getId()))
-                .sum();
-        model.addAttribute("totalProyectos",       totalProyectos);
-        model.addAttribute("totalRecomendaciones", totalRecomendaciones);
+        model.addAttribute("totalUsuarios",       usuarioService.obtenerTodos().size());
+        model.addAttribute("totalConvocatorias",  convocatoriaService.obtenerTodas().size());
+        // Queries directas en BD — sin iterar sobre colecciones en memoria
+        model.addAttribute("totalProyectos",       proyectoRepository.countAll());
+        model.addAttribute("totalRecomendaciones", recomendacionRepository.countAll());
         return "admin/dashboard";
     }
 
@@ -96,14 +100,24 @@ public class AdminController {
     }
 
     /**
-     * Ver detalle de un usuario.
+     * Ver detalle de un usuario: datos basicos, proyectos y recomendaciones por proyecto.
      */
     @GetMapping("/usuarios/{id}")
     public String detalleUsuario(@PathVariable Long id, Model model) {
         Usuario usuario = usuarioService.buscarPorId(id)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + id));
+        List<Proyecto> proyectos = proyectoService.obtenerProyectos(id);
+
+        // Mapa proyectoId -> nº recomendaciones para mostrarlo en la tabla sin N+1
+        Map<Long, Long> recsPerProyecto = proyectos.stream()
+                .collect(Collectors.toMap(
+                        Proyecto::getId,
+                        p -> recomendacionService.contarPorProyecto(p.getId())
+                ));
+
         model.addAttribute("usuarioDetalle", usuario);
-        model.addAttribute("proyectos", proyectoService.obtenerProyectos(id));
+        model.addAttribute("proyectos", proyectos);
+        model.addAttribute("recsPerProyecto", recsPerProyecto);
         return "admin/usuarios/detalle";
     }
 
@@ -215,6 +229,31 @@ public class AdminController {
                                        RedirectAttributes redirectAttributes) {
         convocatoriaService.eliminar(id);
         redirectAttributes.addFlashAttribute("exito", "Convocatoria eliminada correctamente.");
+        return "redirect:/admin/convocatorias";
+    }
+
+    /**
+     * Importa convocatorias desde la API publica de BDNS.
+     * En caso de error de conexion muestra un mensaje de aviso sin lanzar excepcion.
+     */
+    @PostMapping("/convocatorias/importar-bdns")
+    public String importarDesdeBdns(@RequestParam(defaultValue = "0")  int pagina,
+                                    @RequestParam(defaultValue = "20") int tamano,
+                                    RedirectAttributes redirectAttributes) {
+        try {
+            int nuevas = convocatoriaService.importarDesdeBdns(pagina, tamano);
+            if (nuevas == 0) {
+                redirectAttributes.addFlashAttribute("aviso",
+                        "Se consultó BDNS pero no se encontraron convocatorias nuevas (todas ya existen en el catálogo).");
+            } else {
+                redirectAttributes.addFlashAttribute("exito",
+                        "Se importaron " + nuevas + " convocatorias nuevas desde BDNS.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error",
+                    "No se pudo conectar con la API de BDNS: " + e.getMessage() +
+                    ". Activa el modo mock con bdns.mock=true para pruebas.");
+        }
         return "redirect:/admin/convocatorias";
     }
 

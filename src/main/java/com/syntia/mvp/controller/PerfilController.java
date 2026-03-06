@@ -50,17 +50,33 @@ public class PerfilController {
         Optional<Perfil> perfilOpt = perfilService.obtenerPerfil(usuario.getId());
 
         if (perfilOpt.isPresent()) {
-            // Precargar el formulario con los datos existentes
             model.addAttribute("perfilDTO", perfilService.toDTO(perfilOpt.get()));
             model.addAttribute("tienePerfil", true);
         } else {
-            // Formulario vacío para primer acceso
             model.addAttribute("perfilDTO", new PerfilDTO());
             model.addAttribute("tienePerfil", false);
         }
 
         model.addAttribute("usuario", usuario);
         return "usuario/perfil";
+    }
+
+    /**
+     * Muestra el perfil del usuario en modo solo lectura.
+     * Si el usuario no tiene perfil, redirige al formulario de creación.
+     */
+    @GetMapping("/ver")
+    public String verPerfil(Authentication authentication, Model model) {
+        Usuario usuario = resolverUsuario(authentication);
+        Optional<Perfil> perfilOpt = perfilService.obtenerPerfil(usuario.getId());
+
+        if (perfilOpt.isEmpty()) {
+            return "redirect:/usuario/perfil";
+        }
+
+        model.addAttribute("perfil", perfilOpt.get());
+        model.addAttribute("usuario", usuario);
+        return "usuario/perfil-ver";
     }
 
     /**

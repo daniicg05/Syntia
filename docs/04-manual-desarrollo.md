@@ -167,9 +167,9 @@ com.syntia.mvp
 ├── repository/
 │   ├── UsuarioRepository.java        ✅ findByEmail, existsByEmail
 │   ├── PerfilRepository.java         ✅ findByUsuarioId
-│   ├── ProyectoRepository.java       ✅ findByUsuarioId
-│   ├── ConvocatoriaRepository.java   ✅ filtrar() JPQL, sectores/tipos distintos
-│   └── RecomendacionRepository.java  ✅ findByProyectoId, deleteByProyectoId, countByProyectoId
+    ├── ProyectoRepository.java       ✅ findByUsuarioId + countAll()
+    ├── ConvocatoriaRepository.java   ✅ filtrar() JPQL, existsByTituloAndFuente, sectores/tipos distintos
+    └── RecomendacionRepository.java  ✅ findByProyectoId, deleteByProyectoId, countByProyectoId, countAll(), filtrar() JPQL
 └── service/
     ├── CustomUserDetailsService.java  ✅ Carga por email para Spring Security
     ├── UsuarioService.java            ✅ registrar, buscar, obtenerTodos, eliminar, cambiarRol
@@ -177,7 +177,8 @@ com.syntia.mvp
     ├── ProyectoService.java           ✅ CRUD + verificarPropiedad + toDTO
     ├── MotorMatchingService.java      ✅ Scoring rule-based (sector, ubicación, nacional, keywords)
     ├── RecomendacionService.java      ✅ obtenerPorProyecto, contarPorProyecto
-    ├── ConvocatoriaService.java       ✅ CRUD completo + toDTO
+    ├── ConvocatoriaService.java       ✅ CRUD completo + toDTO + importarDesdeBdns()
+    ├── BdnsClientService.java         ✅ Cliente API pública BDNS + modo mock (bdns.mock=true)
     └── DashboardService.java          ✅ topRecomendaciones, roadmap, contarTotal, RoadmapItem record
 ```
 
@@ -185,7 +186,8 @@ com.syntia.mvp
 
 ```
 src/main/resources/
-├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, variables de entorno
+├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, OpenAI, BDNS
+├── application-prod.properties       ✅ Perfil producción — todas las props por variable de entorno
 ├── data-test.sql                     ✅ 2 usuarios, 1 perfil, 8 convocatorias, 1 proyecto
 ├── static/
 │   ├── bootstrap/                    ✅ Bootstrap 5 CSS
@@ -198,23 +200,29 @@ src/main/resources/
 └── templates/
     ├── login.html
     ├── registro.html
+    ├── aviso-legal.html              ✅ Página pública de aviso legal (ruta GET /aviso-legal)
     ├── error.html
     ├── error/403.html, 404.html, 409.html, 500.html
+    ├── fragments/
+    │   ├── navbar-usuario.html       ✅ Fragment navbar azul (bg-primary) para vistas usuario
+    │   ├── navbar-admin.html         ✅ Fragment navbar oscuro (bg-dark) para vistas admin
+    │   └── footer.html               ✅ Fragment pie de página con copyright y enlace aviso legal
     ├── usuario/
     │   ├── dashboard.html            ✅ Métricas, top recomendaciones, roadmap
     │   ├── perfil.html               ✅ Formulario crear/editar perfil
+    │   ├── perfil-ver.html           ✅ Vista solo lectura del perfil (ruta GET /usuario/perfil/ver)
     │   └── proyectos/
     │       ├── lista.html
     │       ├── formulario.html       ✅ Crear y editar (vista unificada)
     │       ├── detalle.html
-    │       └── recomendaciones.html  ✅ Filtros, puntuación, aviso legal
+    │       └── recomendaciones.html  ✅ Filtros BD, puntuación, badges IA/reglas, aviso legal
     └── admin/
-        ├── dashboard.html            ✅ Métricas del sistema
+        ├── dashboard.html            ✅ Métricas del sistema (countAll directo, sin N+1)
         ├── usuarios/
         │   ├── lista.html            ✅ Cambio de rol inline + modal eliminar
-        │   └── detalle.html          ✅ Datos + proyectos del usuario
+        │   └── detalle.html          ✅ Datos + proyectos + nº recomendaciones por proyecto
         └── convocatorias/
-            ├── lista.html            ✅ Tabla con fechas urgentes resaltadas
+            ├── lista.html            ✅ Tabla + sección "Importar desde BDNS"
             └── formulario.html       ✅ Crear y editar convocatoria
 ```
 
@@ -261,6 +269,7 @@ Cabecera requerida: `Authorization: Bearer <token>`
 | Código | Situación |
 |--------|-----------|
 | `200` | Éxito |
+| `201` | Recurso creado |
 | `400` | Validación fallida (`MethodArgumentNotValidException`) |
 | `401` | Credenciales incorrectas |
 | `403` | Sin permisos (`AccessDeniedException`) |
@@ -270,55 +279,103 @@ Cabecera requerida: `Authorization: Bearer <token>`
 
 ---
 
-## 8. Instrucciones de Despliegue
+## 8. Despliegue en Producción
 
-### 8.1. Entorno de Desarrollo
+### 8.1 Variables de entorno requeridas
+
+Antes de arrancar en producción, configura las siguientes variables de entorno:
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `DB_URL` | URL JDBC de la BD PostgreSQL | `jdbc:postgresql://host:5432/syntia_db` |
+| `DB_USER` | Usuario de BD | `syntia` |
+| `DB_PASSWORD` | Contraseña de BD | `s3cr3t` |
+| `JWT_SECRET` | Secreto para firmar JWT (≥ 32 chars) | `M1S3cr3tK3yP4r4JWT...` |
+| `JWT_EXPIRATION` | Expiración del token en ms | `86400000` (24h) |
+| `OPENAI_API_KEY` | API key de OpenAI (opcional) | `sk-proj-...` |
+| `PORT` | Puerto del servidor | `8080` |
+| `SPRING_PROFILES_ACTIVE` | Perfil Spring activo | `prod` |
+
+> **Nota:** Si `OPENAI_API_KEY` está vacía, el motor de matching usa automáticamente el algoritmo rule-based como fallback.
+
+### 8.2 Construir el artefacto JAR
 
 ```bash
-# Clonar y arrancar
-git clone https://github.com/daniicg05/Syntia.git
-cd Syntia
-./mvnw spring-boot:run
+./mvnw clean package -DskipTests
 ```
 
-Acceder en: `http://localhost:8080`  
-Datos de prueba: ejecutar `src/main/resources/data-test.sql` una vez creadas las tablas.
+El JAR se genera en `target/syntia-mvp-*.jar`.
 
-### 8.2. Entorno de Producción
+### 8.3 Arrancar con perfil de producción
 
-Variables de entorno requeridas:
-
-| Variable | Descripción |
-|----------|-------------|
-| `SPRING_DATASOURCE_URL` | URL completa JDBC de PostgreSQL |
-| `SPRING_DATASOURCE_USERNAME` | Usuario de BD |
-| `SPRING_DATASOURCE_PASSWORD` | Contraseña de BD |
-| `JWT_SECRET` | Clave secreta JWT (mínimo 32 caracteres, base64) |
-| `JWT_EXPIRATION` | Expiración del token en milisegundos (ej: `86400000`) |
-
-Configuración recomendada para producción (sobreescribir en `application-prod.properties`):
-
-```properties
-spring.jpa.hibernate.ddl-auto=validate
-spring.jpa.show-sql=false
-spring.thymeleaf.cache=true
-logging.level.org.springframework.security=INFO
-logging.level.com.syntia.mvp=INFO
+**Opción A — argumento de línea de comandos:**
+```bash
+java -jar target/syntia-mvp-*.jar --spring.profiles.active=prod
 ```
 
-> **Importante:** Cambiar `allowedOriginPatterns("*")` en `CorsConfig.java` por el dominio real antes del despliegue.
+**Opción B — variable de entorno (recomendada en Docker/Railway/Render):**
+```bash
+export SPRING_PROFILES_ACTIVE=prod
+java -jar target/syntia-mvp-*.jar
+```
 
----
+### 8.4 Despliegue en Railway / Render
 
-## 9. Deuda Técnica Registrada
+1. Conecta el repositorio GitHub en el panel de Railway o Render.
+2. Configura las variables de entorno en **Settings → Environment**.
+3. El comando de arranque es automático (`java -jar`). Asegúrate de que el `Procfile` o la configuración de build use:
+   ```
+   web: java -jar target/syntia-mvp-*.jar --spring.profiles.active=prod
+   ```
+4. Verifica que la aplicación responde en `GET /login` (no hay `/actuator/health` en el MVP).
 
-| Prioridad | Componente | Descripción |
-|-----------|-----------|-------------|
-| 🟡 Media | `AdminController.dashboard()` | N+1 queries para métricas → migrar a query `COUNT` agregada |
-| 🟡 Media | `RecomendacionController` | Filtros en memoria, no en BD → escala mal con volumen alto |
-| 🟡 Media | `perfil-ver.html` | Vista solo lectura ausente; actualmente perfil.html hace las veces de vista y edición |
-| 🟡 Media | `application-prod.properties` | No existe perfil Spring para producción |
-| 🟢 Baja | `06-diagramas.md` | Actualizar diagramas de secuencia con flujos de las fases 3–6 |
-| 🟢 Baja | Paginación | Sin paginación en listados de usuarios y convocatorias (admin) |
-| 🟢 Baja | `bootsprap/` typo | Carpeta de JS de Bootstrap con nombre erróneo; corregir requiere actualizar todas las vistas |
+### 8.5 Base de datos en producción
+
+- **Schema:** Spring Boot aplica `ddl-auto=validate` en prod, por lo que el schema debe crearse manualmente o con una herramienta de migración (recomendado: Flyway).
+- **Inicialización inicial:** Ejecuta el script `src/main/resources/data-test.sql` solo en entornos de staging/demo, nunca en producción real.
+- **Credenciales por defecto del script:**
+  - Admin: `admin@syntia.com` / `admin123`
+  - Usuario: `usuario@syntia.com` / `user123`
+
+### 8.6 HTTPS y proxy inverso (nginx)
+
+Ejemplo mínimo de configuración nginx como proxy inverso con certificado Let's Encrypt:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name tudominio.com;
+
+    ssl_certificate     /etc/letsencrypt/live/tudominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tudominio.com/privkey.pem;
+
+    location / {
+        proxy_pass         http://localhost:8080;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+server {
+    listen 80;
+    server_name tudominio.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+Obtener certificado: `certbot --nginx -d tudominio.com`
+
+### 8.7 Checklist pre-despliegue
+
+- [ ] Variables de entorno configuradas en el servidor/panel
+- [ ] BD PostgreSQL creada y accesible desde el servidor
+- [ ] Schema de BD inicializado (tablas creadas)
+- [ ] `spring.profiles.active=prod` activo
+- [ ] `spring.jpa.show-sql=false` (incluido en application-prod.properties)
+- [ ] HTTPS activo con certificado válido
+- [ ] CORS configurado con el dominio de producción real en `CorsConfig.java`
+- [ ] `bdns.mock=false` si se quiere usar la API real de BDNS
+- [ ] Prueba de login con usuario admin tras el despliegue
+
 

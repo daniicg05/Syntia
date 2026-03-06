@@ -98,6 +98,8 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- ── OpenAI: cliente HTTP vía Spring RestClient (incluido en spring-boot-starter-web) ── -->
+		<!-- Jackson ya viene transitivamente; sin dependencias externas adicionales              -->
 	</dependencies>
 
 	<build>

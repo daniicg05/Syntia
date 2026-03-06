@@ -66,32 +66,12 @@ public class RecomendacionController {
         Usuario usuario = resolverUsuario(authentication);
         Proyecto proyecto = proyectoService.obtenerPorId(proyectoId, usuario.getId());
 
-        List<RecomendacionDTO> recomendaciones = recomendacionService.obtenerPorProyecto(proyectoId);
+        // Filtros delegados a BD — una sola query en lugar de cargar todo + filtrar en memoria
+        List<RecomendacionDTO> recomendaciones = recomendacionService.filtrar(proyectoId, tipo, sector, ubicacion);
 
-        // Aplicar filtros en memoria sobre los DTOs ya obtenidos
-        if (tipo != null && !tipo.isBlank()) {
-            recomendaciones = recomendaciones.stream()
-                    .filter(r -> tipo.equalsIgnoreCase(r.getTipo()))
-                    .toList();
-        }
-        if (sector != null && !sector.isBlank()) {
-            recomendaciones = recomendaciones.stream()
-                    .filter(r -> sector.equalsIgnoreCase(r.getSector()))
-                    .toList();
-        }
-        if (ubicacion != null && !ubicacion.isBlank()) {
-            recomendaciones = recomendaciones.stream()
-                    .filter(r -> ubicacion.equalsIgnoreCase(r.getUbicacion()))
-                    .toList();
-        }
-
-        // Valores únicos para los selectores de filtro
-        List<String> tipos = recomendacionService.obtenerPorProyecto(proyectoId).stream()
-                .map(RecomendacionDTO::getTipo).filter(t -> t != null && !t.isBlank())
-                .distinct().sorted().toList();
-        List<String> sectores = recomendacionService.obtenerPorProyecto(proyectoId).stream()
-                .map(RecomendacionDTO::getSector).filter(s -> s != null && !s.isBlank())
-                .distinct().sorted().toList();
+        // Selectores de filtro: valores distintos via queries BD (no iterar sobre todos los registros)
+        List<String> tipos    = recomendacionService.obtenerTiposDistintos(proyectoId);
+        List<String> sectores = recomendacionService.obtenerSectoresDistintos(proyectoId);
 
         model.addAttribute("proyecto", proyecto);
         model.addAttribute("recomendaciones", recomendaciones);
@@ -121,11 +101,17 @@ public class RecomendacionController {
 
         if (generadas.isEmpty()) {
             redirectAttributes.addFlashAttribute("aviso",
-                    "No se encontraron convocatorias compatibles con tu proyecto. " +
-                    "Completa el sector y la ubicación para mejorar los resultados.");
+                    "El motor de IA no encontró convocatorias compatibles con tu proyecto. " +
+                    "Completa el sector, la ubicación y la descripción para mejorar los resultados.");
         } else {
-            redirectAttributes.addFlashAttribute("exito",
-                    "Se han generado " + generadas.size() + " recomendaciones para tu proyecto.");
+            long conIa = generadas.stream()
+                    .filter(r -> r instanceof com.syntia.mvp.model.Recomendacion rec && rec.isUsadaIa())
+                    .count();
+            String msg = "Se han generado " + generadas.size() + " recomendaciones para tu proyecto.";
+            if (conIa > 0) {
+                msg += " " + conIa + " analizadas por IA.";
+            }
+            redirectAttributes.addFlashAttribute("exito", msg);
         }
         return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";
     }

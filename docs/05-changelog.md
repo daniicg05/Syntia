@@ -8,29 +8,76 @@ Formato de cada entrada:
 
 ---
 
-## [1.6.0] – 2026-03-05
+## [1.8.0] – 2026-03-06
 
-### Auditoría Técnica y Correcciones Urgentes
+### Fase 7: Deuda Técnica, Calidad y Producción
 
-Auditoría completa del proyecto (fases 1–6). Correcciones de los problemas de prioridad alta detectados.
+Resolución completa de los 8 faltantes detectados en la auditoría (v1.6.0).
 
-#### Correcciones aplicadas
-- `ProyectoRestController`: cambiado para devolver `ProyectoDTO` en lugar de entidad JPA (evitar exposición de `password_hash`).
-- `dashboard.js`: corregido selector `[th:text*]` inválido en runtime (Thymeleaf elimina atributos antes de servir el HTML).
-- `AuthRestController`: `expiresIn` ahora lee `${jwt.expiration}` en lugar de valor hardcodeado.
-- `templates/usuarios/lista.html`: eliminado artefacto residual del proyecto anterior con referencias a campos inexistentes.
+#### Nuevos archivos creados
+- `application-prod.properties` — perfil Spring para producción con todas las propiedades sensibles via variables de entorno (`DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `OPENAI_API_KEY`, `PORT`).
+- `templates/usuario/perfil-ver.html` — vista de solo lectura del perfil con DL semántico, badges y botón editar.
+- `templates/fragments/navbar-usuario.html` — fragment navbar azul reutilizable para vistas de usuario.
+- `templates/fragments/navbar-admin.html` — fragment navbar oscuro reutilizable para vistas de admin.
+- `templates/fragments/footer.html` — fragment pie de página con copyright dinámico y enlace aviso legal.
+- `templates/aviso-legal.html` — página pública de aviso legal (ruta `GET /aviso-legal`, sin autenticación).
+- `service/BdnsClientService.java` — cliente REST para la API pública de BDNS con modo mock configurable (`bdns.mock=true`).
 
-#### Deuda técnica registrada (pendiente)
-- Métricas admin con N+1 queries.
-- Filtros de recomendaciones en memoria.
-- Ausencia de `perfil-ver.html` (solo lectura).
-- Falta perfil Spring `prod` y `application-prod.properties`.
+#### Archivos modificados
 
-**Autor(es):** Daniel (Auditoría y correcciones)
+**Backend:**
+- `PerfilController` — añadida ruta `GET /usuario/perfil/ver` con redirect automático si no hay perfil.
+- `AuthController` — añadida ruta `GET /aviso-legal` pública.
+- `AdminController` — métricas del dashboard con `countAll()` directo (sin N+1); `detalleUsuario()` incluye `recsPerProyecto` (`Map<Long,Long>`).
+- `ConvocatoriaService` — inyectado `BdnsClientService`; nuevo método `importarDesdeBdns(pagina, tamano)` con detección de duplicados.
+- `AdminController` — nuevo endpoint `POST /admin/convocatorias/importar-bdns`.
+- `RecomendacionService` — nuevos métodos `filtrar()`, `obtenerTiposDistintos()`, `obtenerSectoresDistintos()`.
+- `RecomendacionController` — filtros delegados completamente a BD (eliminado filtrado en memoria).
+- `SecurityConfig` — añadida `/aviso-legal` a rutas públicas.
+
+**Repositorios:**
+- `ProyectoRepository` — añadido `countAll()` con `@Query`.
+- `RecomendacionRepository` — añadidos `countAll()`, `filtrar()` JPQL, `findTiposDistintosByProyectoId()`, `findSectoresDistintosByProyectoId()`.
+- `ConvocatoriaRepository` — añadido `existsByTituloAndFuente()` para detección de duplicados BDNS.
+
+**Frontend:**
+- 9 vistas (4 usuario + 5 admin) — navbars duplicados reemplazados con `th:replace` de fragments.
+- 9 vistas — footer añadido con `th:replace`.
+- `perfil.html` — botón "Ver perfil" añadido (visible solo si ya tiene perfil).
+- `admin/usuarios/detalle.html` — tabla de proyectos incluye badge de nº recomendaciones por proyecto.
+- `admin/convocatorias/lista.html` — sección "Importar desde BDNS" con formulario de paginación.
+- `application.properties` — añadidas propiedades `bdns.mock`, `openai.model`, `openai.max-tokens`, `openai.temperature`.
+
+**Documentación:**
+- `04-manual-desarrollo.md` — nueva sección §8 con guía completa de despliegue en producción (variables de entorno, JAR, Railway/Render, nginx, HTTPS, checklist).
+- `07-fases-implementacion.md` — completamente reescrito para reflejar el estado real: fases 1–7 documentadas, 8 faltantes resueltos en Fase 7.
+
+**Autor(es):** Daniel (Fase 7 — Deuda técnica y producción)
 
 ---
 
-## [1.5.0] – 2026-03-05
+## [1.7.0] – 2026-03-06
+
+
+### Motor de Matching con OpenAI (Fase 3+)
+
+#### Nuevos archivos creados
+- `service/OpenAiClient.java` — cliente HTTP ligero para OpenAI Chat Completions API usando `RestClient` de Spring 6. Sin dependencias externas adicionales.
+- `service/OpenAiMatchingService.java` — construcción del prompt con contexto completo (proyecto + perfil + convocatoria), llamada a OpenAI, parseo de respuesta JSON `{puntuacion, explicacion}`.
+
+#### Archivos modificados
+- `MotorMatchingService` — estrategia híbrida: OpenAI como motor primario, fallback automático al motor rule-based si la API falla o no está configurada.
+- `Recomendacion` — campo `usadaIa` (boolean) para registrar en BD si fue generada por OpenAI o por reglas.
+- `RecomendacionDTO` — expone `usadaIa` a las vistas.
+- `RecomendacionService` — mapea `usadaIa` en `toDTO()`.
+- `templates/usuario/proyectos/recomendaciones.html` — badge **🤖 Analizado por IA** vs **⚙️ Motor de reglas**; botón renombrado a "Analizar con IA".
+- `application.properties` — añadidas propiedades `openai.api-key` (con fallback vacío), `openai.model`, `openai.max-tokens`, `openai.temperature`.
+
+**Autor(es):** Daniel (Integración OpenAI)
+
+---
+
+## [1.6.0] – 2026-03-05
 
 ### Fase 6: API REST + JWT + Despliegue
 

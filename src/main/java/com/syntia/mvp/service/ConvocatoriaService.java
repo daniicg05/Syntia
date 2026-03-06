@@ -4,6 +4,7 @@ import com.syntia.mvp.model.Convocatoria;
 import com.syntia.mvp.model.dto.ConvocatoriaDTO;
 import com.syntia.mvp.repository.ConvocatoriaRepository;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,13 +14,17 @@ import java.util.List;
  * Servicio de lógica de negocio para la gestión de convocatorias.
  * Usado principalmente por el panel administrativo y el motor de matching.
  */
+@Slf4j
 @Service
 public class ConvocatoriaService {
 
     private final ConvocatoriaRepository convocatoriaRepository;
+    private final BdnsClientService bdnsClientService;
 
-    public ConvocatoriaService(ConvocatoriaRepository convocatoriaRepository) {
+    public ConvocatoriaService(ConvocatoriaRepository convocatoriaRepository,
+                               BdnsClientService bdnsClientService) {
         this.convocatoriaRepository = convocatoriaRepository;
+        this.bdnsClientService = bdnsClientService;
     }
 
     /** Obtiene todas las convocatorias registradas. */
@@ -75,6 +80,33 @@ public class ConvocatoriaService {
     public void eliminar(Long id) {
         Convocatoria c = obtenerPorId(id);
         convocatoriaRepository.delete(c);
+    }
+
+    /**
+     * Importa convocatorias desde la API publica de BDNS y las persiste evitando duplicados.
+     * Dos convocatorias se consideran duplicadas si tienen el mismo titulo y fuente.
+     *
+     * @param pagina numero de pagina BDNS (0-indexed)
+     * @param tamano registros por pagina (max 50)
+     * @return numero de convocatorias nuevas importadas (las duplicadas se omiten)
+     * @throws BdnsClientService.BdnsException si la API de BDNS no esta disponible
+     */
+    @Transactional
+    public int importarDesdeBdns(int pagina, int tamano) {
+        List<ConvocatoriaDTO> importadas = bdnsClientService.importar(pagina, tamano);
+        int nuevas = 0;
+
+        for (ConvocatoriaDTO dto : importadas) {
+            boolean existe = convocatoriaRepository.existsByTituloIgnoreCaseAndFuente(dto.getTitulo(), dto.getFuente());
+            if (!existe) {
+                crear(dto);
+                nuevas++;
+            }
+        }
+
+        log.info("BDNS import: {} importadas, {} nuevas, {} duplicadas omitidas",
+                importadas.size(), nuevas, importadas.size() - nuevas);
+        return nuevas;
     }
 
     /** Convierte una entidad a DTO para precargar formularios de edición. */

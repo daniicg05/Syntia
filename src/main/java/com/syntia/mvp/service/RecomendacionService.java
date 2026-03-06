@@ -44,6 +44,44 @@ public class RecomendacionService {
     }
 
     /**
+     * Filtra recomendaciones de un proyecto por tipo, sector y ubicacion.
+     * El filtrado se delega a la BD (no en memoria).
+     * Los parametros nulos o vacios se ignoran.
+     *
+     * @param proyectoId ID del proyecto (obligatorio)
+     * @param tipo       filtro por tipo de convocatoria (opcional)
+     * @param sector     filtro por sector (opcional)
+     * @param ubicacion  filtro por ubicacion (opcional)
+     * @return lista de RecomendacionDTO ordenada por puntuacion desc
+     */
+    public List<RecomendacionDTO> filtrar(Long proyectoId, String tipo, String sector, String ubicacion) {
+        return recomendacionRepository
+                .filtrar(proyectoId,
+                         (tipo      != null && !tipo.isBlank())      ? tipo      : null,
+                         (sector    != null && !sector.isBlank())    ? sector    : null,
+                         (ubicacion != null && !ubicacion.isBlank()) ? ubicacion : null)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene los tipos distintos de convocatoria para las recomendaciones de un proyecto.
+     * Usado para poblar los selectores de filtro en la vista.
+     */
+    public List<String> obtenerTiposDistintos(Long proyectoId) {
+        return recomendacionRepository.findTiposDistintosByProyectoId(proyectoId);
+    }
+
+    /**
+     * Obtiene los sectores distintos para las recomendaciones de un proyecto.
+     * Usado para poblar los selectores de filtro en la vista.
+     */
+    public List<String> obtenerSectoresDistintos(Long proyectoId) {
+        return recomendacionRepository.findSectoresDistintosByProyectoId(proyectoId);
+    }
+
+    /**
      * Convierte una entidad {@link Recomendacion} a {@link RecomendacionDTO}.
      * Aplana los datos de la convocatoria asociada para evitar LazyInitializationException.
      */
@@ -52,6 +90,7 @@ public class RecomendacionService {
         dto.setId(rec.getId());
         dto.setPuntuacion(rec.getPuntuacion());
         dto.setExplicacion(rec.getExplicacion());
+        dto.setUsadaIa(rec.isUsadaIa());
         dto.setConvocatoriaId(rec.getConvocatoria().getId());
         dto.setTitulo(rec.getConvocatoria().getTitulo());
         dto.setTipo(rec.getConvocatoria().getTipo());

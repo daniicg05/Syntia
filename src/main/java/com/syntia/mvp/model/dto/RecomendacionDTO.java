@@ -20,6 +20,9 @@ public class RecomendacionDTO {
     private int puntuacion;
     private String explicacion;
 
+    /** Indica si la explicación y puntuación fueron generadas por OpenAI (true) o por el motor rule-based (false). */
+    private boolean usadaIa;
+
     // Datos de la convocatoria asociada (desnormalizados para la vista)
     private Long convocatoriaId;
     private String titulo;

@@ -85,6 +85,14 @@ public class AuthController {
         return "redirect:/login";
     }
 
+    /**
+     * Página de aviso legal (publica, sin autenticacion).
+     */
+    @GetMapping("/aviso-legal")
+    public String avisoLegal() {
+        return "aviso-legal";
+    }
+
 
     /**
      * Dashboard del usuario final con datos reales: proyectos, top recomendaciones y roadmap.

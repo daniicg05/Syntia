@@ -18,14 +18,7 @@
 <body class="bg-light">
 
 <!-- Navbar -->
-<nav class="navbar navbar-dark bg-primary px-4">
-    <span class="navbar-brand fw-bold">Syntia</span>
-    <div class="d-flex gap-2">
-        <a th:href="@{/usuario/perfil}"    class="btn btn-outline-light btn-sm">Mi Perfil</a>
-        <a th:href="@{/usuario/proyectos}" class="btn btn-outline-light btn-sm">Mis Proyectos</a>
-        <a th:href="@{/logout}"            class="btn btn-light btn-sm">Cerrar sesión</a>
-    </div>
-</nav>
+<nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
 
 <div class="container py-5">
 
@@ -226,6 +219,7 @@
 
 <script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
 <script th:src="@{/javascript/dashboard.js}"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
 

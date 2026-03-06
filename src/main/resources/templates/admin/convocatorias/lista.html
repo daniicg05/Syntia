@@ -8,14 +8,7 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-dark bg-dark px-4">
-    <span class="navbar-brand fw-bold">Syntia <span class="badge bg-danger ms-1 small">Admin</span></span>
-    <div class="d-flex gap-2">
-        <a th:href="@{/admin/dashboard}" class="btn btn-outline-light btn-sm">Dashboard</a>
-        <a th:href="@{/admin/usuarios}"  class="btn btn-outline-light btn-sm">Usuarios</a>
-        <a th:href="@{/logout}"          class="btn btn-light btn-sm">Cerrar sesión</a>
-    </div>
-</nav>
+<nav th:replace="~{fragments/navbar-admin :: navbar-admin}"></nav>
 
 <div class="container py-5">
 
@@ -123,7 +116,60 @@
 
 </div>
 
+<!-- ── Sección Importar desde BDNS ─────────────────────────────────────── -->
+<div class="container mt-2 mb-5">
+    <div class="card border-info shadow-sm">
+        <div class="card-header bg-info bg-opacity-10 d-flex align-items-center gap-2">
+            <span class="fw-semibold">🏛️ Importar desde BDNS</span>
+            <span class="badge bg-info text-dark small">API pública</span>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Importa convocatorias directamente de la
+                <strong>Base de Datos Nacional de Subvenciones</strong> (BDNS).
+                Solo se añaden las que no existan ya en el catálogo (detección por título + fuente).
+                Activa <code>bdns.mock=true</code> en <code>application.properties</code> para modo demo.
+            </p>
+
+            <!-- Alertas de resultado -->
+            <div th:if="${aviso}" class="alert alert-warning alert-dismissible fade show py-2" role="alert">
+                <span th:text="${aviso}"></span>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+            </div>
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+                <span th:text="${error}"></span>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+            </div>
+
+            <form th:action="@{/admin/convocatorias/importar-bdns}" method="post"
+                  class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="pagina" class="form-label small fw-semibold mb-1">Página</label>
+                    <input type="number" id="pagina" name="pagina"
+                           class="form-control form-control-sm" style="width: 90px;"
+                           value="0" min="0" max="100">
+                </div>
+                <div class="col-auto">
+                    <label for="tamano" class="form-label small fw-semibold mb-1">Registros</label>
+                    <input type="number" id="tamano" name="tamano"
+                           class="form-control form-control-sm" style="width: 90px;"
+                           value="20" min="1" max="50">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-info btn-sm text-dark">
+                        ⬇️ Importar convocatorias
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <span class="text-muted small">Max 50 por petición · Estado: abiertas</span>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
 

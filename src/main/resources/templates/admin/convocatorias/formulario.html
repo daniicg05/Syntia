@@ -10,13 +10,7 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-dark bg-dark px-4">
-    <span class="navbar-brand fw-bold">Syntia <span class="badge bg-danger ms-1 small">Admin</span></span>
-    <div class="d-flex gap-2">
-        <a th:href="@{/admin/convocatorias}" class="btn btn-outline-light btn-sm">← Convocatorias</a>
-        <a th:href="@{/logout}"              class="btn btn-light btn-sm">Cerrar sesión</a>
-    </div>
-</nav>
+<nav th:replace="~{fragments/navbar-admin :: navbar-admin}"></nav>
 
 <div class="container py-5" style="max-width: 720px;">
 
@@ -125,6 +119,7 @@
 </div>
 
 <script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
 

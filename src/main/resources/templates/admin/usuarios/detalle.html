@@ -8,13 +8,7 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-dark bg-dark px-4">
-    <span class="navbar-brand fw-bold">Syntia <span class="badge bg-danger ms-1 small">Admin</span></span>
-    <div class="d-flex gap-2">
-        <a th:href="@{/admin/usuarios}" class="btn btn-outline-light btn-sm">← Usuarios</a>
-        <a th:href="@{/logout}"         class="btn btn-light btn-sm">Cerrar sesión</a>
-    </div>
-</nav>
+<nav th:replace="~{fragments/navbar-admin :: navbar-admin}"></nav>
 
 <div class="container py-5" style="max-width: 720px;">
 
@@ -68,6 +62,15 @@
                         <span class="badge bg-secondary ms-2" th:if="${p.sector}" th:text="${p.sector}"></span>
                         <span class="badge bg-info text-dark ms-1" th:if="${p.ubicacion}" th:text="${p.ubicacion}"></span>
                     </div>
+                    <div class="text-end">
+                        <span class="badge bg-success"
+                              th:if="${recsPerProyecto[p.id] != null and recsPerProyecto[p.id] > 0}"
+                              th:text="${recsPerProyecto[p.id]} + ' recs.'"></span>
+                        <span class="badge bg-light text-muted border"
+                              th:unless="${recsPerProyecto[p.id] != null and recsPerProyecto[p.id] > 0}">
+                            Sin recs.
+                        </span>
+                    </div>
                 </li>
             </ul>
         </div>
@@ -82,6 +85,7 @@
 </div>
 
 <script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
 
