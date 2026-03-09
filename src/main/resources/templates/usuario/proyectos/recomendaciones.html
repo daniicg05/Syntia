@@ -182,8 +182,8 @@
                             <button th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
                                     type="button"
                                     class="btn btn-success btn-sm"
-                                    th:data-bs-toggle="'modal'"
-                                    th:data-bs-target="${'#modalGuia' + rec.id}">
+                                    data-bs-toggle="modal"
+                                    th:attr="data-bs-target=|#modalGuia${rec.id}|">
                                 📋 Ver guía de solicitud
                             </button>
 
@@ -200,7 +200,7 @@
 
                 <!-- ── MODAL GUÍA ── -->
                 <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
-                     th:id="'modalGuia' + ${rec.id}"
+                     th:id="|modalGuia${rec.id}|"
                      class="modal fade" tabindex="-1" aria-modal="true" role="dialog">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
                         <div class="modal-content">
