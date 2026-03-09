@@ -102,20 +102,15 @@ public class RecomendacionService {
         dto.setFuente(rec.getConvocatoria().getFuente());
         dto.setFechaCierre(rec.getConvocatoria().getFechaCierre());
 
-        // Construir URL fiable del portal BDNS
-        // Prioridad: numConv (siempre funciona) > idBdns (a veces falla) > url guardada
+        // Construir URL fiable del portal BDNS — ficha individual de la convocatoria
+        // La SPA Angular del portal usa el numeroConvocatoria en la URL, NO el id interno de la API
+        // Prioridad: numConv (ficha SPA) > url guardada en BD
         String url;
         String numConv = rec.getConvocatoria().getNumeroConvocatoria();
-        String idBdns  = rec.getConvocatoria().getIdBdns();
         if (numConv != null && !numConv.isBlank()) {
-            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias?numConv=" + numConv;
-        } else if (idBdns != null && !idBdns.isBlank()) {
-            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/" + idBdns;
+            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/" + numConv;
         } else {
             url = rec.getConvocatoria().getUrlOficial();
-            if (url != null) {
-                url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
-            }
         }
         dto.setUrlOficial(url);
 
