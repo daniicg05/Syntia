@@ -106,8 +106,13 @@
     <div th:if="${totalSinFiltro > 0}">
 
         <p class="text-muted small mb-3">
-            Mostrando <strong th:text="${#lists.size(recomendaciones)}"></strong>
-            de <strong th:text="${totalSinFiltro}"></strong> recomendaciones.
+            <span th:if="${filtrTipo == null and filtrSector == null and (filtrUbicacion == null or filtrUbicacion == '')}">
+                <strong th:text="${totalSinFiltro}"></strong> recomendaciones encontradas.
+            </span>
+            <span th:unless="${filtrTipo == null and filtrSector == null and (filtrUbicacion == null or filtrUbicacion == '')}">
+                Mostrando <strong th:text="${#lists.size(recomendaciones)}"></strong>
+                de <strong th:text="${totalSinFiltro}"></strong> recomendaciones.
+            </span>
         </p>
 
         <!-- Sin resultados tras filtrar -->
