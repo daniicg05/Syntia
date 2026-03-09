@@ -207,10 +207,13 @@ public class MotorMatchingService {
                         existente.setSector(dto.getSector());
                         changed = true;
                     }
-                    // Actualizar idBdns si no estaba guardado
                     if (existente.getIdBdns() == null && dto.getIdBdns() != null) {
                         existente.setIdBdns(dto.getIdBdns());
-                        existente.setUrlOficial(dto.getUrlOficial());
+                        changed = true;
+                    }
+                    if (existente.getNumeroConvocatoria() == null && dto.getNumeroConvocatoria() != null) {
+                        existente.setNumeroConvocatoria(dto.getNumeroConvocatoria());
+                        existente.setUrlOficial(dto.getUrlOficial()); // URL con numConv siempre fiable
                         changed = true;
                     }
                     return changed ? convocatoriaRepository.save(existente) : existente;
@@ -227,6 +230,7 @@ public class MotorMatchingService {
                 .urlOficial(dto.getUrlOficial())
                 .fuente(dto.getFuente())
                 .idBdns(dto.getIdBdns())
+                .numeroConvocatoria(dto.getNumeroConvocatoria())
                 .fechaCierre(dto.getFechaCierre())
                 .build();
     }

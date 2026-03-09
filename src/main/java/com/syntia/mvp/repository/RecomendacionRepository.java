@@ -44,14 +44,14 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
 
     /**
      * Filtra recomendaciones de un proyecto por tipo, sector y ubicacion delegando a BD.
-     * Usa JOIN FETCH para cargar la convocatoria y evitar LazyInitializationException.
-     * Los parametros nulos o vacios se ignoran (filtro opcional).
+     * - tipo y sector: coincidencia exacta, ignorados si son null
+     * - ubicacion: búsqueda parcial LIKE, ignorada si es null
      */
     @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria c " +
            "WHERE r.proyecto.id = :proyectoId " +
-           "AND (:tipo      IS NULL OR :tipo      = '' OR c.tipo      = :tipo) " +
-           "AND (:sector    IS NULL OR :sector    = '' OR c.sector    = :sector) " +
-           "AND (:ubicacion IS NULL OR :ubicacion = '' OR c.ubicacion = :ubicacion) " +
+           "AND (:tipo      IS NULL OR c.tipo      = :tipo) " +
+           "AND (:sector    IS NULL OR c.sector    = :sector) " +
+           "AND (:ubicacion IS NULL OR LOWER(c.ubicacion) LIKE LOWER(CONCAT('%', :ubicacion, '%'))) " +
            "ORDER BY r.puntuacion DESC")
     List<Recomendacion> filtrar(@Param("proyectoId") Long proyectoId,
                                 @Param("tipo")       String tipo,

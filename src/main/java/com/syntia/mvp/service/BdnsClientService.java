@@ -251,13 +251,14 @@ public class BdnsClientService {
         String numConv = getString(c, "numeroConvocatoria", null);
         if (idBdns != null) {
             dto.setIdBdns(idBdns);
-            // URL del buscador BDNS con el número de convocatoria (siempre accesible)
-            // La URL de detalle /convocatorias/{id} a veces falla con "Error al obtener datos"
-            if (numConv != null && !numConv.isBlank()) {
-                dto.setUrlOficial("https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias?numConv=" + numConv);
-            } else {
-                dto.setUrlOficial("https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/" + idBdns);
-            }
+        }
+        if (numConv != null && !numConv.isBlank()) {
+            dto.setNumeroConvocatoria(numConv);
+            // URL del buscador por número: siempre funciona y muestra la ficha completa
+            dto.setUrlOficial("https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias?numConv=" + numConv);
+        } else if (idBdns != null) {
+            // Fallback con ID interno (puede fallar con "Error al obtener datos" en algunas convocatorias)
+            dto.setUrlOficial("https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/" + idBdns);
         }
 
         // Fecha de cierre: intentar campos reales de plazo (fechaRecepcion es la de REGISTRO, no cierre)

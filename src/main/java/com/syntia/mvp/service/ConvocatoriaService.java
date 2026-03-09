@@ -140,10 +140,16 @@ public class ConvocatoriaService {
         dto.setFuente(c.getFuente());
         dto.setFechaCierre(c.getFechaCierre());
         dto.setIdBdns(c.getIdBdns());
-        // Corregir URLs antiguas /convocatoria/ → /convocatorias/
-        String url = c.getUrlOficial();
-        if (url != null) {
-            url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
+        dto.setNumeroConvocatoria(c.getNumeroConvocatoria());
+        // Construir URL fiable: numConv > idBdns > url guardada
+        String url;
+        if (c.getNumeroConvocatoria() != null && !c.getNumeroConvocatoria().isBlank()) {
+            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias?numConv=" + c.getNumeroConvocatoria();
+        } else if (c.getIdBdns() != null && !c.getIdBdns().isBlank()) {
+            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/" + c.getIdBdns();
+        } else {
+            url = c.getUrlOficial();
+            if (url != null) url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
         }
         dto.setUrlOficial(url);
         return dto;

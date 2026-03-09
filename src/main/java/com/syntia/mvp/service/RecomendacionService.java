@@ -102,16 +102,20 @@ public class RecomendacionService {
         dto.setFuente(rec.getConvocatoria().getFuente());
         dto.setFechaCierre(rec.getConvocatoria().getFechaCierre());
 
-        // Construir URL fiable: usar buscador BDNS con el idBdns, evita el "Error al obtener datos"
-        // del portal de detalle que falla en convocatorias antiguas/archivadas
-        String url = rec.getConvocatoria().getUrlOficial();
-        String idBdns = rec.getConvocatoria().getIdBdns();
-        if (idBdns != null && !idBdns.isBlank()) {
-            // URL del buscador siempre accesible
+        // Construir URL fiable del portal BDNS
+        // Prioridad: numConv (siempre funciona) > idBdns (a veces falla) > url guardada
+        String url;
+        String numConv = rec.getConvocatoria().getNumeroConvocatoria();
+        String idBdns  = rec.getConvocatoria().getIdBdns();
+        if (numConv != null && !numConv.isBlank()) {
+            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias?numConv=" + numConv;
+        } else if (idBdns != null && !idBdns.isBlank()) {
             url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/" + idBdns;
-        } else if (url != null) {
-            // Fallback: corregir typo antiguo /convocatoria/ → /convocatorias/
-            url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
+        } else {
+            url = rec.getConvocatoria().getUrlOficial();
+            if (url != null) {
+                url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
+            }
         }
         dto.setUrlOficial(url);
 

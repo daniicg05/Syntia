@@ -82,9 +82,11 @@
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Tipo</label>
                     <select th:if="${!#lists.isEmpty(tipos)}" name="tipo" class="form-select form-select-sm">
-                        <option value="">Todos los tipos</option>
-                        <option th:each="t : ${tipos}" th:value="${t}" th:text="${t}"
-                                th:selected="${t == filtrTipo}"></option>
+                        <option value="" th:selected="${filtrTipo == null or filtrTipo == ''}">Todos los tipos</option>
+                        <option th:each="t : ${tipos}"
+                                th:value="${t}"
+                                th:text="${t}"
+                                th:selected="${filtrTipo != null and filtrTipo == t}"></option>
                     </select>
                     <span th:unless="${!#lists.isEmpty(tipos)}"
                           class="form-control form-control-sm text-muted bg-light"
@@ -93,18 +95,21 @@
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Sector</label>
                     <select th:if="${!#lists.isEmpty(sectores)}" name="sector" class="form-select form-select-sm">
-                        <option value="">Todos los sectores</option>
-                        <option th:each="s : ${sectores}" th:value="${s}" th:text="${s}"
-                                th:selected="${s == filtrSector}"></option>
+                        <option value="" th:selected="${filtrSector == null or filtrSector == ''}">Todos los sectores</option>
+                        <option th:each="s : ${sectores}"
+                                th:value="${s}"
+                                th:text="${s}"
+                                th:selected="${filtrSector != null and filtrSector == s}"></option>
                     </select>
                     <span th:unless="${!#lists.isEmpty(sectores)}"
                           class="form-control form-control-sm text-muted bg-light"
                           style="font-size:0.8rem;">Sin sectores — regenera el análisis</span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small fw-semibold">Ubicación</label>
+                    <label class="form-label small fw-semibold">Ubicación <span class="text-muted fw-normal">(búsqueda parcial)</span></label>
                     <input type="text" name="ubicacion" class="form-control form-control-sm"
-                           placeholder="Ej: Madrid" th:value="${filtrUbicacion}">
+                           placeholder="Ej: Cataluña, Madrid..."
+                           th:value="${filtrUbicacion != null ? filtrUbicacion : ''}">
                 </div>
                 <div class="col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-outline-primary btn-sm flex-fill">Filtrar</button>
