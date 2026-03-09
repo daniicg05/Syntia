@@ -1,11 +1,11 @@
 package com.syntia.mvp.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -40,8 +40,15 @@ public class OpenAiClient {
 
     private final RestClient restClient;
 
+    /** Máximo de caracteres del userPrompt para no desperdiciar tokens de entrada. */
+    private static final int MAX_PROMPT_CHARS = 1200;
+
     public OpenAiClient(RestClient.Builder builder) {
-        this.restClient = builder.build();
+        // Timeout: 10s conexión, 30s lectura — evita colgarse indefinidamente
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(30_000);
+        this.restClient = builder.requestFactory(factory).build();
     }
 
     @jakarta.annotation.PostConstruct
@@ -66,14 +73,21 @@ public class OpenAiClient {
             throw new OpenAiUnavailableException("openai.api-key no configurada");
         }
 
+        // Truncar prompt largo para no gastar tokens innecesarios
+        String promptFinal = userPrompt.length() > MAX_PROMPT_CHARS
+                ? userPrompt.substring(0, MAX_PROMPT_CHARS)
+                : userPrompt;
+
         try {
             Map<String, Object> requestBody = Map.of(
                     "model", model,
                     "max_tokens", maxTokens,
                     "temperature", temperature,
+                    // json_object → respuesta directa sin texto adicional, más rápido de parsear
+                    "response_format", Map.of("type", "json_object"),
                     "messages", List.of(
                             Map.of("role", "system", "content", systemPrompt),
-                            Map.of("role", "user",   "content", userPrompt)
+                            Map.of("role", "user",   "content", promptFinal)
                     )
             );
 
