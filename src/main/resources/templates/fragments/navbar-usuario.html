@@ -6,16 +6,17 @@
   Fragment: navbar-usuario
   Uso: <nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
 -->
-<nav th:fragment="navbar-usuario" class="navbar navbar-dark bg-primary px-4">
-    <a th:href="@{/usuario/dashboard}" class="navbar-brand fw-bold text-decoration-none">Syntia</a>
-    <div class="d-flex gap-2 flex-wrap">
-        <a th:href="@{/usuario/perfil/ver}"  class="btn btn-outline-light btn-sm">Mi Perfil</a>
-        <a th:href="@{/usuario/proyectos}"   class="btn btn-outline-light btn-sm">Mis Proyectos</a>
+<nav th:fragment="navbar-usuario" class="navbar navbar-dark bg-primary px-3 px-md-4 py-2 shadow-sm">
+    <a th:href="@{/usuario/dashboard}" class="navbar-brand fw-bold fs-5 text-decoration-none">
+        ✦ Syntia
+    </a>
+    <div class="d-flex gap-1 gap-md-2 flex-wrap align-items-center">
         <a th:href="@{/usuario/dashboard}"   class="btn btn-outline-light btn-sm">Dashboard</a>
-        <a th:href="@{/logout}"              class="btn btn-light btn-sm">Cerrar sesión</a>
+        <a th:href="@{/usuario/proyectos}"   class="btn btn-outline-light btn-sm">Mis Proyectos</a>
+        <a th:href="@{/usuario/perfil/ver}"  class="btn btn-outline-light btn-sm">Mi Perfil</a>
+        <a th:href="@{/logout}"              class="btn btn-light btn-sm fw-semibold">Salir</a>
     </div>
 </nav>
 
 </body>
 </html>
-

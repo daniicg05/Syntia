@@ -23,23 +23,31 @@
 <div class="container py-5">
 
     <!-- Saludo -->
-    <h2 class="mb-0">Bienvenido, <span th:text="${usuario.email}">usuario</span></h2>
-    <p class="text-muted mb-4">Panel de control de tu cuenta Syntia.</p>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="mb-0 fw-bold">Bienvenido 👋</h2>
+            <p class="text-muted mb-0" th:text="${usuario.email}"></p>
+        </div>
+        <a th:href="@{/usuario/proyectos/nuevo}" class="btn btn-primary btn-sm align-self-start">
+            + Nuevo proyecto
+        </a>
+    </div>
 
     <!-- ── MÉTRICAS RÁPIDAS ── -->
     <div class="row g-3 mb-5">
 
         <!-- Proyectos -->
         <div class="col-6 col-md-4">
-            <div class="card shadow-sm text-center h-100">
+            <div class="card shadow-sm text-center h-100 border-0">
                 <div class="card-body py-4">
                     <div class="display-5 fw-bold text-primary"
                          th:text="${#maps.size(topRecomendaciones)}">0</div>
-                    <div class="text-muted small mt-1">Proyectos</div>
+                    <div class="fw-semibold small mt-1">Proyectos</div>
+                    <div class="text-muted" style="font-size:0.75rem;">activos en tu cuenta</div>
                 </div>
                 <div class="card-footer bg-white border-0 pb-3">
                     <a th:href="@{/usuario/proyectos}" class="btn btn-outline-primary btn-sm w-100">
-                        Gestionar
+                        Gestionar proyectos
                     </a>
                 </div>
             </div>
@@ -47,11 +55,12 @@
 
         <!-- Recomendaciones totales -->
         <div class="col-6 col-md-4">
-            <div class="card shadow-sm text-center h-100">
+            <div class="card shadow-sm text-center h-100 border-0">
                 <div class="card-body py-4">
                     <div class="display-5 fw-bold text-success"
                          th:text="${totalRecomendaciones}">0</div>
-                    <div class="text-muted small mt-1">Recomendaciones</div>
+                    <div class="fw-semibold small mt-1">Recomendaciones</div>
+                    <div class="text-muted" style="font-size:0.75rem;">generadas por IA 🤖</div>
                 </div>
                 <div class="card-footer bg-white border-0 pb-3">
                     <a th:href="@{/usuario/proyectos}" class="btn btn-outline-success btn-sm w-100">
@@ -63,10 +72,11 @@
 
         <!-- Perfil -->
         <div class="col-12 col-md-4">
-            <div class="card shadow-sm text-center h-100">
+            <div class="card shadow-sm text-center h-100 border-0">
                 <div class="card-body py-4">
                     <div class="fs-1">👤</div>
-                    <div class="text-muted small mt-1">Mi Perfil</div>
+                    <div class="fw-semibold small mt-1">Mi Perfil</div>
+                    <div class="text-muted" style="font-size:0.75rem;">información de tu entidad</div>
                 </div>
                 <div class="card-footer bg-white border-0 pb-3">
                     <a th:href="@{/usuario/perfil}" class="btn btn-outline-secondary btn-sm w-100">
@@ -79,15 +89,29 @@
 
     <!-- ── TOP RECOMENDACIONES POR PROYECTO ── -->
     <section class="mb-5">
-        <h4 class="mb-3">⚡ Top Recomendaciones por Proyecto</h4>
+        <h4 class="mb-1">🤖 Recomendaciones por Proyecto</h4>
+        <p class="text-muted small mb-3">Las mejores coincidencias encontradas por el motor de IA en la BDNS.</p>
 
         <!-- Sin proyectos -->
-        <div th:if="${#maps.isEmpty(topRecomendaciones)}" class="card shadow-sm">
-            <div class="card-body text-center py-4">
-                <p class="text-muted mb-2">Aún no tienes proyectos.</p>
-                <a th:href="@{/usuario/proyectos/nuevo}" class="btn btn-primary btn-sm">
-                    Crear mi primer proyecto
-                </a>
+        <div th:if="${#maps.isEmpty(topRecomendaciones)}" class="card shadow-sm border-0">
+            <div class="card-body text-center py-5">
+                <div class="fs-1 mb-2">🚀</div>
+                <h5 class="fw-semibold mb-1">Empieza aquí</h5>
+                <p class="text-muted small mb-3">
+                    Para recibir recomendaciones personalizadas sigue estos pasos:
+                </p>
+                <div class="d-flex flex-column flex-md-row justify-content-center gap-2">
+                    <a th:href="@{/usuario/perfil}" class="btn btn-outline-secondary btn-sm">
+                        1️⃣ Completa tu perfil
+                    </a>
+                    <a th:href="@{/usuario/proyectos/nuevo}" class="btn btn-primary btn-sm">
+                        2️⃣ Crea tu primer proyecto
+                    </a>
+                </div>
+                <p class="text-muted mt-3 mb-0" style="font-size:0.78rem;">
+                    Después podrás pulsar <strong>Analizar con IA</strong> para obtener
+                    recomendaciones de subvenciones reales de la BDNS.
+                </p>
             </div>
         </div>
 

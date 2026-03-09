@@ -10,15 +10,14 @@
     <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
         <span class="text-muted small">
             &copy; <span th:text="${#dates.year(#dates.createNow())}">2026</span>
-            Syntia MVP — Plataforma de recomendaciones de subvenciones
+            <strong>Syntia</strong> — Motor de recomendaciones de subvenciones con IA
         </span>
-        <div class="d-flex gap-3 small">
+        <div class="d-flex gap-3 small align-items-center">
             <a th:href="@{/aviso-legal}" class="text-muted text-decoration-none">Aviso legal</a>
-            <span class="text-muted">v1.7.0</span>
+            <span class="badge bg-light text-muted border">v2.3.0</span>
         </div>
     </div>
 </footer>
 
 </body>
 </html>
-
