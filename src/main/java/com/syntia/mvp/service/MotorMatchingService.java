@@ -202,12 +202,18 @@ public class MotorMatchingService {
         return convocatoriaRepository
                 .findByTituloIgnoreCaseAndFuente(dto.getTitulo(), dto.getFuente())
                 .map(existente -> {
-                    // Actualizar sector si estaba nulo y ahora lo tenemos (inferido por IA)
+                    boolean changed = false;
                     if (existente.getSector() == null && dto.getSector() != null) {
                         existente.setSector(dto.getSector());
-                        return convocatoriaRepository.save(existente);
+                        changed = true;
                     }
-                    return existente;
+                    // Actualizar idBdns si no estaba guardado
+                    if (existente.getIdBdns() == null && dto.getIdBdns() != null) {
+                        existente.setIdBdns(dto.getIdBdns());
+                        existente.setUrlOficial(dto.getUrlOficial());
+                        changed = true;
+                    }
+                    return changed ? convocatoriaRepository.save(existente) : existente;
                 })
                 .orElseGet(() -> convocatoriaRepository.save(dtoAEntidad(dto)));
     }
@@ -220,6 +226,7 @@ public class MotorMatchingService {
                 .ubicacion(dto.getUbicacion())
                 .urlOficial(dto.getUrlOficial())
                 .fuente(dto.getFuente())
+                .idBdns(dto.getIdBdns())
                 .fechaCierre(dto.getFechaCierre())
                 .build();
     }

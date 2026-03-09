@@ -99,9 +99,22 @@ public class RecomendacionService {
         dto.setTipo(rec.getConvocatoria().getTipo());
         dto.setSector(rec.getConvocatoria().getSector());
         dto.setUbicacion(rec.getConvocatoria().getUbicacion());
-        dto.setUrlOficial(rec.getConvocatoria().getUrlOficial());
         dto.setFuente(rec.getConvocatoria().getFuente());
         dto.setFechaCierre(rec.getConvocatoria().getFechaCierre());
+
+        // Construir URL fiable: usar buscador BDNS con el idBdns, evita el "Error al obtener datos"
+        // del portal de detalle que falla en convocatorias antiguas/archivadas
+        String url = rec.getConvocatoria().getUrlOficial();
+        String idBdns = rec.getConvocatoria().getIdBdns();
+        if (idBdns != null && !idBdns.isBlank()) {
+            // URL del buscador siempre accesible
+            url = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/" + idBdns;
+        } else if (url != null) {
+            // Fallback: corregir typo antiguo /convocatoria/ → /convocatorias/
+            url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
+        }
+        dto.setUrlOficial(url);
+
         return dto;
     }
 }

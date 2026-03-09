@@ -36,6 +36,9 @@ public class Convocatoria {
 
     private String fuente;
 
+    @Column(name = "id_bdns")
+    private String idBdns;
+
     @Column(name = "fecha_cierre")
     private LocalDate fechaCierre;
 }

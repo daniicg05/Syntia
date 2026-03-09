@@ -27,6 +27,23 @@ public class ConvocatoriaService {
         this.bdnsClientService = bdnsClientService;
     }
 
+    /** Corrige URLs antiguas /convocatoria/ → /convocatorias/ en toda la BD. Retorna el número de registros actualizados. */
+    @Transactional
+    public int corregirUrlsAntiguas() {
+        List<Convocatoria> todas = convocatoriaRepository.findAll();
+        int corregidas = 0;
+        for (Convocatoria c : todas) {
+            if (c.getUrlOficial() != null && c.getUrlOficial().contains("/bdnstrans/GE/es/convocatoria/")) {
+                c.setUrlOficial(c.getUrlOficial().replace(
+                        "/bdnstrans/GE/es/convocatoria/",
+                        "/bdnstrans/GE/es/convocatorias/"));
+                convocatoriaRepository.save(c);
+                corregidas++;
+            }
+        }
+        return corregidas;
+    }
+
     /** Obtiene todas las convocatorias registradas. */
     public List<Convocatoria> obtenerTodas() {
         return convocatoriaRepository.findAll();
@@ -120,9 +137,15 @@ public class ConvocatoriaService {
         dto.setTipo(c.getTipo());
         dto.setSector(c.getSector());
         dto.setUbicacion(c.getUbicacion());
-        dto.setUrlOficial(c.getUrlOficial());
         dto.setFuente(c.getFuente());
         dto.setFechaCierre(c.getFechaCierre());
+        dto.setIdBdns(c.getIdBdns());
+        // Corregir URLs antiguas /convocatoria/ → /convocatorias/
+        String url = c.getUrlOficial();
+        if (url != null) {
+            url = url.replace("/bdnstrans/GE/es/convocatoria/", "/bdnstrans/GE/es/convocatorias/");
+        }
+        dto.setUrlOficial(url);
         return dto;
     }
 }

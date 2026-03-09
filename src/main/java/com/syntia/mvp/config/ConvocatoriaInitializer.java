@@ -6,12 +6,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Carga inicial de convocatorias reales desde la API de la BDNS al arrancar.
- * <p>
- * Solo importa si la tabla de convocatorias está vacía.
- * Importa las primeras 3 páginas (hasta 150 convocatorias reales) de la BDNS.
- */
 @Slf4j
 @Component
 public class ConvocatoriaInitializer {
@@ -27,6 +21,13 @@ public class ConvocatoriaInitializer {
 
     @EventListener(ApplicationReadyEvent.class)
     public void cargarConvocatoriasIniciales() {
+        // 1. Corregir URLs antiguas /convocatoria/ → /convocatorias/ en toda la BD
+        int urlsCorregidas = convocatoriaService.corregirUrlsAntiguas();
+        if (urlsCorregidas > 0) {
+            log.info("URLs corregidas en BD: {} convocatorias actualizadas (/convocatoria/ → /convocatorias/)", urlsCorregidas);
+        }
+
+        // 2. Importar si la tabla está vacía
         long total = convocatoriaService.obtenerTodas().size();
         if (total > 0) {
             log.info("Ya existen {} convocatorias en BD — no se importan nuevas al arrancar.", total);
