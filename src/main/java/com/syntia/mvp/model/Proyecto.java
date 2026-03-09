@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Entidad que representa un proyecto descrito por un usuario.
  * Sirve como base para el motor de matching con convocatorias.
@@ -35,5 +38,8 @@ public class Proyecto {
 
     @Column(columnDefinition = "TEXT")
     private String descripcion;
+
+    @OneToMany(mappedBy = "proyecto", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Recomendacion> recomendaciones = new ArrayList<>();
 }
 
