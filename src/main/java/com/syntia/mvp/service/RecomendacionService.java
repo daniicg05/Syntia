@@ -4,6 +4,7 @@ import com.syntia.mvp.model.Recomendacion;
 import com.syntia.mvp.model.dto.RecomendacionDTO;
 import com.syntia.mvp.repository.RecomendacionRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
  * Este servicio se ocupa de la lectura y conversión a DTO para las vistas.
  */
 @Service
+@Transactional(readOnly = true)
 public class RecomendacionService {
 
     private final RecomendacionRepository recomendacionRepository;

@@ -39,6 +39,8 @@ public class ProyectoService {
 
     /**
      * Obtiene un proyecto por ID verificando que pertenece al usuario.
+     * Usa JOIN FETCH para cargar el usuario en la misma query y evitar
+     * LazyInitializationException al acceder a proyecto.getUsuario().
      *
      * @param id        ID del proyecto
      * @param usuarioId ID del usuario autenticado
@@ -46,8 +48,9 @@ public class ProyectoService {
      * @throws EntityNotFoundException si el proyecto no existe
      * @throws AccessDeniedException   si el proyecto pertenece a otro usuario
      */
+    @Transactional(readOnly = true)
     public Proyecto obtenerPorId(Long id, Long usuarioId) {
-        Proyecto proyecto = proyectoRepository.findById(id)
+        Proyecto proyecto = proyectoRepository.findByIdWithUsuario(id)
                 .orElseThrow(() -> new EntityNotFoundException("Proyecto no encontrado: " + id));
         verificarPropiedad(proyecto, usuarioId);
         return proyecto;

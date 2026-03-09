@@ -44,6 +44,15 @@ public class OpenAiClient {
         this.restClient = builder.build();
     }
 
+    @jakarta.annotation.PostConstruct
+    void logConfig() {
+        if (apiKey != null && !apiKey.isBlank()) {
+            log.info("OpenAI configurado: model={}, key={}...", model, apiKey.substring(0, Math.min(10, apiKey.length())));
+        } else {
+            log.warn("OpenAI API key NO configurada — se usará motor rule-based");
+        }
+    }
+
     /**
      * Envía un prompt al modelo configurado y devuelve el contenido de la respuesta.
      *

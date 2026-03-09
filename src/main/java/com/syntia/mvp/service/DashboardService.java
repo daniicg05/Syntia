@@ -3,6 +3,7 @@ package com.syntia.mvp.service;
 import com.syntia.mvp.model.Proyecto;
 import com.syntia.mvp.model.dto.RecomendacionDTO;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.Map;
  * y el servicio testeable de forma independiente.
  */
 @Service
+@Transactional(readOnly = true)
 public class DashboardService {
 
     private final ProyectoService proyectoService;

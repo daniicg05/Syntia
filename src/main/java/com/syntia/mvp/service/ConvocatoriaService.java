@@ -94,8 +94,35 @@ public class ConvocatoriaService {
     @Transactional
     public int importarDesdeBdns(int pagina, int tamano) {
         List<ConvocatoriaDTO> importadas = bdnsClientService.importar(pagina, tamano);
-        int nuevas = 0;
+        return persistirNuevas(importadas);
+    }
 
+    /**
+     * Busca convocatorias en toda la BDNS (~615.000) por palabras clave y las importa.
+     * Permite al motor de IA consultar el catálogo completo de convocatorias reales
+     * sin necesidad de tenerlas todas precargadas en la BD local.
+     *
+     * @param keywords palabras clave de búsqueda (generadas por OpenAI a partir del proyecto)
+     * @param paginas  número de páginas a importar (cada una con hasta 50 resultados)
+     * @return lista de convocatorias (nuevas + ya existentes) que coinciden con la búsqueda
+     */
+    @Transactional
+    public List<Convocatoria> buscarEImportarDesdeBdns(String keywords, int paginas) {
+        int totalNuevas = 0;
+        for (int pag = 0; pag < paginas; pag++) {
+            List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTexto(keywords, pag, 50);
+            if (encontradas.isEmpty()) break;
+            totalNuevas += persistirNuevas(encontradas);
+        }
+        log.info("BDNS búsqueda '{}': {} páginas consultadas, {} nuevas importadas",
+                keywords, paginas, totalNuevas);
+
+        // Devolver todas las convocatorias de la BD (las recién importadas + las que ya existían)
+        return convocatoriaRepository.findAll();
+    }
+
+    private int persistirNuevas(List<ConvocatoriaDTO> importadas) {
+        int nuevas = 0;
         for (ConvocatoriaDTO dto : importadas) {
             boolean existe = convocatoriaRepository.existsByTituloIgnoreCaseAndFuente(dto.getTitulo(), dto.getFuente());
             if (!existe) {

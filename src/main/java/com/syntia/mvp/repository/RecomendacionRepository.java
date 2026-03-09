@@ -17,8 +17,11 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
 
     /**
      * Obtiene todas las recomendaciones de un proyecto ordenadas por puntuación descendente.
+     * Usa JOIN FETCH para cargar la convocatoria en la misma query y evitar
+     * LazyInitializationException al convertir a DTO.
      */
-    List<Recomendacion> findByProyectoIdOrderByPuntuacionDesc(Long proyectoId);
+    @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria WHERE r.proyecto.id = :proyectoId ORDER BY r.puntuacion DESC")
+    List<Recomendacion> findByProyectoIdOrderByPuntuacionDesc(@Param("proyectoId") Long proyectoId);
 
     /**
      * Elimina todas las recomendaciones de un proyecto (para regenerarlas).
@@ -41,10 +44,10 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
 
     /**
      * Filtra recomendaciones de un proyecto por tipo, sector y ubicacion delegando a BD.
-     * Sustituye el filtrado en memoria del controller.
+     * Usa JOIN FETCH para cargar la convocatoria y evitar LazyInitializationException.
      * Los parametros nulos o vacios se ignoran (filtro opcional).
      */
-    @Query("SELECT r FROM Recomendacion r JOIN r.convocatoria c " +
+    @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria c " +
            "WHERE r.proyecto.id = :proyectoId " +
            "AND (:tipo      IS NULL OR :tipo      = '' OR c.tipo      = :tipo) " +
            "AND (:sector    IS NULL OR :sector    = '' OR c.sector    = :sector) " +

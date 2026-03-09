@@ -252,7 +252,7 @@ public class AdminController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error",
                     "No se pudo conectar con la API de BDNS: " + e.getMessage() +
-                    ". Activa el modo mock con bdns.mock=true para pruebas.");
+                    ". Verifica tu conexión a Internet e inténtalo de nuevo.");
         }
         return "redirect:/admin/convocatorias";
     }

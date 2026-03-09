@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Motor de interpretación y matching de Syntia.
@@ -41,21 +40,29 @@ public class MotorMatchingService {
     private final RecomendacionRepository recomendacionRepository;
     private final PerfilService perfilService;
     private final OpenAiMatchingService openAiMatchingService;
+    private final ConvocatoriaService convocatoriaService;
 
     public MotorMatchingService(ConvocatoriaRepository convocatoriaRepository,
                                 RecomendacionRepository recomendacionRepository,
                                 PerfilService perfilService,
-                                OpenAiMatchingService openAiMatchingService) {
+                                OpenAiMatchingService openAiMatchingService,
+                                ConvocatoriaService convocatoriaService) {
         this.convocatoriaRepository = convocatoriaRepository;
         this.recomendacionRepository = recomendacionRepository;
         this.perfilService = perfilService;
         this.openAiMatchingService = openAiMatchingService;
+        this.convocatoriaService = convocatoriaService;
     }
 
     /**
      * Genera y persiste recomendaciones para un proyecto.
-     * Elimina las recomendaciones anteriores antes de regenerarlas.
-     * Usa OpenAI si está disponible; si no, aplica el motor rule-based.
+     * <p>
+     * Estrategia de búsqueda en las 615.000+ convocatorias de la BDNS:
+     * <ol>
+     *   <li>OpenAI analiza el proyecto + perfil y genera keywords de búsqueda</li>
+     *   <li>Busca en la API de BDNS con esas keywords → importa candidatas a la BD local</li>
+     *   <li>OpenAI evalúa cada convocatoria candidata y genera puntuación + explicación</li>
+     * </ol>
      *
      * @param proyecto proyecto para el que se generan recomendaciones
      * @return lista de recomendaciones persistidas, ordenadas por puntuación desc
@@ -64,10 +71,14 @@ public class MotorMatchingService {
     public List<Recomendacion> generarRecomendaciones(Proyecto proyecto) {
         recomendacionRepository.deleteByProyectoId(proyecto.getId());
 
-        // Cargar el perfil del usuario (opcional: mejora el contexto para OpenAI)
+        // 1. Cargar el perfil del usuario
         Perfil perfil = perfilService.obtenerPerfil(proyecto.getUsuario().getId()).orElse(null);
 
-        List<Convocatoria> convocatorias = convocatoriaRepository.findAll();
+        // 2. Generar keywords de búsqueda con OpenAI y buscar en BDNS (615K convocatorias)
+        List<Convocatoria> convocatorias = buscarConvocatoriasRelevantes(proyecto, perfil);
+        log.info("Convocatorias candidatas para matching: {}", convocatorias.size());
+
+        // 3. Evaluar cada convocatoria candidata con OpenAI
         List<Recomendacion> recomendaciones = new ArrayList<>();
 
         for (Convocatoria convocatoria : convocatorias) {
@@ -87,10 +98,34 @@ public class MotorMatchingService {
 
         recomendaciones.sort((a, b) -> Integer.compare(b.getPuntuacion(), a.getPuntuacion()));
 
-        log.info("Motor matching completado: proyecto={} convocatorias={} recomendaciones={}",
+        log.info("Motor matching completado: proyecto={} candidatas={} recomendaciones={}",
                 proyecto.getId(), convocatorias.size(), recomendaciones.size());
 
         return recomendaciones;
+    }
+
+    // ── Búsqueda inteligente en BDNS ─────────────────────────────────────────
+
+    /**
+     * Busca convocatorias relevantes en la BDNS usando keywords generadas por OpenAI.
+     * Cada keyword genera una búsqueda contra las 615.000+ convocatorias de la BDNS,
+     * importando hasta 50 resultados por keyword.
+     */
+    private List<Convocatoria> buscarConvocatoriasRelevantes(Proyecto proyecto, Perfil perfil) {
+        try {
+            List<String> keywords = openAiMatchingService.generarKeywordsBusqueda(proyecto, perfil);
+            for (String kw : keywords) {
+                try {
+                    convocatoriaService.buscarEImportarDesdeBdns(kw, 1);
+                } catch (Exception e) {
+                    log.warn("Error buscando en BDNS con keywords '{}': {}", kw, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error en búsqueda BDNS, usando convocatorias existentes en BD: {}", e.getMessage());
+        }
+
+        return convocatoriaRepository.findAll();
     }
 
     // ── Evaluación con fallback ──────────────────────────────────────────────
