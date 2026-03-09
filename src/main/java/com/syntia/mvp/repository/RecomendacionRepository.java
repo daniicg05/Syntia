@@ -51,7 +51,7 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
            "WHERE r.proyecto.id = :proyectoId " +
            "AND (:tipo      IS NULL OR c.tipo      = :tipo) " +
            "AND (:sector    IS NULL OR c.sector    = :sector) " +
-           "AND (:ubicacion IS NULL OR LOWER(c.ubicacion) LIKE LOWER(CONCAT('%', :ubicacion, '%'))) " +
+           "AND (:ubicacion = '' OR LOWER(c.ubicacion) LIKE LOWER(CONCAT('%', :ubicacion, '%'))) " +
            "ORDER BY r.puntuacion DESC")
     List<Recomendacion> filtrar(@Param("proyectoId") Long proyectoId,
                                 @Param("tipo")       String tipo,

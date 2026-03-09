@@ -100,6 +100,13 @@
 		</dependency>
 		<!-- ── OpenAI: cliente HTTP vía Spring RestClient (incluido en spring-boot-starter-web) ── -->
 		<!-- Jackson ya viene transitivamente; sin dependencias externas adicionales              -->
+
+		<!-- ── Carga automática de archivo .env como variables de entorno ── -->
+		<dependency>
+			<groupId>me.paulschwarz</groupId>
+			<artifactId>spring-dotenv</artifactId>
+			<version>4.0.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>

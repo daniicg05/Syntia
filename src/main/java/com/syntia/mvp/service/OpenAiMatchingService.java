@@ -61,7 +61,11 @@ public class OpenAiMatchingService {
             "para encontrar convocatorias relevantes en la BDNS (Base de Datos Nacional de Subvenciones). " +
             "Reglas: cada búsqueda debe ser 2-4 palabras clave en español, " +
             "centradas en el sector, tipo de ayuda, ámbito o tipo de entidad del proyecto. " +
-            "Genera entre 4 y 6 búsquedas distintas que cubran diferentes ángulos. " +
+            "Genera entre 6 y 8 búsquedas distintas que cubran diferentes ángulos: " +
+            "sector principal, actividad concreta, tipo de entidad, financiación I+D, digitalización, " +
+            "internacionalización, sostenibilidad y ámbito geográfico si se conoce. " +
+            "Si hay pocos datos del proyecto, genera búsquedas genéricas pero útiles como 'subvención pyme', " +
+            "'ayuda empresa innovación', 'subvención emprendedor'. " +
             "RESPONDE ÚNICAMENTE con este JSON: {\"busquedas\": [\"kw1\", \"kw2\", \"kw3\"]}";
 
     private final OpenAiClient openAiClient;

@@ -61,7 +61,7 @@ public class RecomendacionService {
                 .filtrar(proyectoId,
                          (tipo      != null && !tipo.isBlank())      ? tipo      : null,
                          (sector    != null && !sector.isBlank())    ? sector    : null,
-                         (ubicacion != null && !ubicacion.isBlank()) ? ubicacion : null)
+                         (ubicacion != null && !ubicacion.isBlank()) ? ubicacion : "")
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());

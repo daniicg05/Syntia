@@ -97,7 +97,21 @@ public class RecomendacionController {
         Usuario usuario = resolverUsuario(authentication);
         Proyecto proyecto = proyectoService.obtenerPorId(proyectoId, usuario.getId());
 
-        List<?> generadas = motorMatchingService.generarRecomendaciones(proyecto);
+        List<?> generadas;
+        try {
+            generadas = motorMatchingService.generarRecomendaciones(proyecto);
+        } catch (com.syntia.mvp.service.OpenAiClient.OpenAiUnavailableException e) {
+            redirectAttributes.addFlashAttribute("aviso",
+                    "El servicio de IA no está disponible en este momento. " +
+                    "Verifica que la clave de OpenAI esté configurada correctamente. " +
+                    "Detalle: " + e.getMessage());
+            return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";
+        } catch (com.syntia.mvp.service.BdnsClientService.BdnsException e) {
+            redirectAttributes.addFlashAttribute("aviso",
+                    "No se pudo conectar con la Base de Datos Nacional de Subvenciones (BDNS). " +
+                    "Inténtalo de nuevo más tarde.");
+            return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";
+        }
 
         // Contar desde BD para que el mensaje coincida exactamente con lo que mostrará la vista
         long totalEnBd = recomendacionService.contarPorProyecto(proyectoId);

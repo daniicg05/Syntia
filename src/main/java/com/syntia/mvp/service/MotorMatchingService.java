@@ -33,13 +33,13 @@ import java.util.Map;
 public class MotorMatchingService {
 
     /** Puntuación mínima (0-100) para que una convocatoria se guarde como recomendación. */
-    private static final int UMBRAL_RECOMENDACION = 40;
+    private static final int UMBRAL_RECOMENDACION = 10;
 
     /** Máximo de resultados a traer de BDNS por cada keyword. */
-    private static final int RESULTADOS_POR_KEYWORD = 20;
+    private static final int RESULTADOS_POR_KEYWORD = 25;
 
     /** Máximo de candidatas únicas a evaluar con IA (evita llamadas excesivas a OpenAI). */
-    private static final int MAX_CANDIDATAS_IA = 20;
+    private static final int MAX_CANDIDATAS_IA = 30;
 
     private final ConvocatoriaRepository convocatoriaRepository;
     private final RecomendacionRepository recomendacionRepository;
@@ -81,6 +81,11 @@ public class MotorMatchingService {
         Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords);
         log.info("Candidatas únicas obtenidas de BDNS: {}", candidatasUnicas.size());
 
+        if (candidatasUnicas.isEmpty()) {
+            log.warn("⚠ BDNS devolvió 0 candidatas para todas las keywords: {}. " +
+                     "¿Está accesible la API de infosubvenciones.es?", keywords);
+        }
+
         // 4. Limitar a MAX_CANDIDATAS_IA para no hacer demasiadas llamadas a OpenAI
         List<ConvocatoriaDTO> aEvaluar = candidatasUnicas.values().stream()
                 .limit(MAX_CANDIDATAS_IA)
@@ -88,6 +93,8 @@ public class MotorMatchingService {
 
         // 5. Evaluar cada candidata con OpenAI y persistir solo las que superen el umbral
         List<Recomendacion> recomendaciones = new ArrayList<>();
+        int fallosOpenAi = 0;
+        int descartadasPorUmbral = 0;
         for (ConvocatoriaDTO dto : aEvaluar) {
             try {
                 // Obtener detalle completo de la convocatoria desde la API BDNS
@@ -125,12 +132,33 @@ public class MotorMatchingService {
                     recomendaciones.add(recomendacionRepository.save(rec));
                     log.info("Recomendación guardada: puntuacion={} sector='{}' titulo='{}'",
                             resultado.puntuacion(), dto.getSector(), dto.getTitulo());
+                } else {
+                    descartadasPorUmbral++;
+                    log.debug("Descartada por umbral ({}< {}): '{}'",
+                            resultado.puntuacion(), UMBRAL_RECOMENDACION, dto.getTitulo());
                 }
             } catch (OpenAiClient.OpenAiUnavailableException e) {
+                fallosOpenAi++;
                 log.warn("OpenAI no disponible para '{}': {}", dto.getTitulo(), e.getMessage());
             } catch (Exception e) {
                 log.warn("Error evaluando convocatoria '{}': {}", dto.getTitulo(), e.getMessage());
             }
+        }
+
+        if (fallosOpenAi > 0) {
+            log.error("⚠ OpenAI falló en {}/{} evaluaciones. ¿Está configurada la API key (OPENAI_API_KEY)?",
+                    fallosOpenAi, aEvaluar.size());
+        }
+        if (descartadasPorUmbral > 0) {
+            log.info("Descartadas por umbral (<{}): {}", UMBRAL_RECOMENDACION, descartadasPorUmbral);
+        }
+
+        // Si TODAS las evaluaciones fallaron por OpenAI y no hay recomendaciones,
+        // lanzar excepción para que el controlador muestre un mensaje adecuado
+        if (recomendaciones.isEmpty() && fallosOpenAi > 0 && fallosOpenAi == aEvaluar.size()) {
+            throw new OpenAiClient.OpenAiUnavailableException(
+                    "OpenAI no disponible: falló en las " + fallosOpenAi + " evaluaciones. " +
+                    "Verifica que la variable OPENAI_API_KEY esté configurada correctamente.");
         }
 
         recomendaciones.sort((a, b) -> Integer.compare(b.getPuntuacion(), a.getPuntuacion()));
@@ -153,13 +181,23 @@ public class MotorMatchingService {
 
     private List<String> generarKeywordsBasicas(Proyecto proyecto, Perfil perfil) {
         List<String> kw = new ArrayList<>();
-        if (proyecto.getSector() != null && !proyecto.getSector().isBlank())
-            kw.add(proyecto.getSector());
-        if (proyecto.getNombre() != null && !proyecto.getNombre().isBlank())
-            kw.add(proyecto.getNombre());
-        if (perfil != null && perfil.getTipoEntidad() != null && !perfil.getTipoEntidad().isBlank())
-            kw.add(perfil.getTipoEntidad() + " subvencion");
-        if (kw.isEmpty()) kw.add("subvencion empresa");
+        if (proyecto != null) {
+            if (proyecto.getSector() != null && !proyecto.getSector().isBlank())
+                kw.add(proyecto.getSector());
+            if (proyecto.getNombre() != null && !proyecto.getNombre().isBlank())
+                kw.add(proyecto.getNombre());
+            if (proyecto.getUbicacion() != null && !proyecto.getUbicacion().isBlank())
+                kw.add("subvencion " + proyecto.getUbicacion());
+        }
+        if (perfil != null) {
+            if (perfil.getTipoEntidad() != null && !perfil.getTipoEntidad().isBlank())
+                kw.add(perfil.getTipoEntidad() + " subvencion");
+            if (perfil.getSector() != null && !perfil.getSector().isBlank())
+                kw.add("ayuda " + perfil.getSector());
+        }
+        // Fallbacks genéricos siempre útiles
+        kw.add("subvencion pyme");
+        kw.add("ayuda empresa innovacion");
         return kw;
     }
 
@@ -177,7 +215,8 @@ public class MotorMatchingService {
                 for (ConvocatoriaDTO dto : encontradas) {
                     if (dto.getTitulo() == null) continue;
                     if (resultado.containsKey(dto.getTitulo())) continue;
-                    // Descartar las que ya tienen fecha de cierre pasada (doble garantía)
+                    // Descartar SOLO las que tienen fecha de cierre conocida y ya pasó
+                    // (null = sin plazo definido = tratar como abierta)
                     if (dto.getFechaCierre() != null && dto.getFechaCierre().isBefore(hoy)) {
                         log.debug("Descartada por caducada: '{}' cierre={}", dto.getTitulo(), dto.getFechaCierre());
                         continue;
