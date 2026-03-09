@@ -105,7 +105,89 @@ public class BdnsClientService {
         return mapearRespuesta(respuesta);
     }
 
-    // ── Mapeo de la respuesta JSON ───────────────────────────────────────────
+    // ── Detalle enriquecido de una convocatoria ──────────────────────────────
+
+    /**
+     * Obtiene el texto enriquecido de una convocatoria BDNS a partir de su ID interno.
+     * Llama al endpoint de detalle de la API BDNS y extrae todos los campos de texto
+     * relevantes (objeto, beneficiarios, bases reguladoras, requisitos, dotación...).
+     * Este texto se pasa a OpenAI para que la guía sea precisa y específica.
+     *
+     * @param idBdns ID interno de la convocatoria en BDNS (campo "id" del JSON)
+     * @return texto concatenado con todos los campos relevantes, o null si no disponible
+     */
+    public String obtenerDetalleTexto(String idBdns) {
+        if (idBdns == null || idBdns.isBlank()) return null;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> detalle = restClient.get()
+                    .uri("https://www.infosubvenciones.es/bdnstrans/api/convocatorias/" + idBdns)
+                    .retrieve()
+                    .body(Map.class);
+
+            if (detalle == null) return null;
+
+            StringBuilder texto = new StringBuilder();
+            // Campos de texto enriquecido que devuelve la API de detalle BDNS
+            appendCampo(texto, "Objeto",          detalle, "objeto", "descripcionObjeto", "finalidad");
+            appendCampo(texto, "Beneficiarios",   detalle, "beneficiarios", "tiposBeneficiarios");
+            appendCampo(texto, "Requisitos",      detalle, "requisitos", "condicionesAcceso", "requisitosParticipacion");
+            appendCampo(texto, "Dotación",        detalle, "dotacion", "presupuestoTotal", "importeTotal");
+            appendCampo(texto, "Bases reguladoras", detalle, "basesReguladoras", "normativa");
+            appendCampo(texto, "Plazo solicitud", detalle, "plazoSolicitudes", "plazoPresentacion");
+            appendCampo(texto, "Procedimiento",   detalle, "procedimiento", "formaPresentacion");
+            appendCampo(texto, "Documentación",   detalle, "documentacion", "documentosRequeridos");
+
+            String resultado = texto.toString().trim();
+            log.debug("BDNS detalle id={}: {} chars extraídos", idBdns, resultado.length());
+            return resultado.isEmpty() ? null : resultado;
+
+        } catch (Exception e) {
+            log.debug("BDNS detalle no disponible para id={}: {}", idBdns, e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void appendCampo(StringBuilder sb, String etiqueta, Map<String, Object> mapa, String... claves) {
+        for (String clave : claves) {
+            Object val = mapa.get(clave);
+            if (val == null) continue;
+            String texto = extraerTexto(val);
+            if (!texto.isBlank()) {
+                sb.append(etiqueta).append(": ").append(texto.trim()).append("\n");
+                return; // con el primer campo encontrado es suficiente
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extraerTexto(Object val) {
+        if (val instanceof String s) return s;
+        if (val instanceof List<?> list) {
+            StringBuilder sb = new StringBuilder();
+            list.forEach(item -> {
+                if (item instanceof String s) sb.append(s).append("; ");
+                else if (item instanceof Map<?,?> m) {
+                    // Intentar campos de texto comunes en objetos anidados
+                    for (String campo : new String[]{"descripcion", "nombre", "texto", "valor"}) {
+                        Object v = m.get(campo);
+                        if (v instanceof String s && !s.isBlank()) { sb.append(s).append("; "); break; }
+                    }
+                }
+            });
+            return sb.toString();
+        }
+        if (val instanceof Map<?,?> m) {
+            for (String campo : new String[]{"descripcion", "nombre", "texto", "valor"}) {
+                Object v = m.get(campo);
+                if (v instanceof String s && !s.isBlank()) return s;
+            }
+        }
+        return val.toString();
+    }
+
+
 
     @SuppressWarnings("unchecked")
     private List<ConvocatoriaDTO> mapearRespuesta(Map<String, Object> respuesta) {
@@ -164,9 +246,10 @@ public class BdnsClientService {
                            getString(c, "nivel2", "BDNS"));
         dto.setFuente("BDNS – " + organismo);
 
-        // URL oficial: enlace a la ficha en BDNS
+        // ID interno BDNS — necesario para obtener el detalle completo
         String idBdns = getString(c, "id", null);
         if (idBdns != null) {
+            dto.setIdBdns(idBdns);
             dto.setUrlOficial("https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/" + idBdns);
         }
 

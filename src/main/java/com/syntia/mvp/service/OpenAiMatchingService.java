@@ -26,17 +26,34 @@ public class OpenAiMatchingService {
      */
     private static final String SYSTEM_PROMPT =
             "Eres el motor de recomendaciones de Syntia, plataforma española de ayudas y subvenciones públicas. " +
-            "Evalúa la compatibilidad real entre un proyecto/perfil de usuario y una convocatoria pública oficial. " +
-            "Criterios de puntuación (0-100): " +
-            "90-100 = sector, tipo de entidad y ámbito geográfico coinciden plenamente; " +
-            "70-89 = alta compatibilidad con algún matiz menor; " +
-            "50-69 = el proyecto podría adaptarse pero hay diferencias relevantes; " +
-            "30-49 = compatibilidad baja, solo coincidencias genéricas; " +
-            "0-29 = incompatible. " +
-            "En la explicación (máximo 2 frases, en español): indica primero el punto fuerte principal y luego " +
-            "el requisito o condición clave que el usuario debe verificar antes de solicitar. " +
-            "Sé concreto: menciona el sector, tipo de entidad o ámbito específico cuando sea relevante. " +
-            "RESPONDE ÚNICAMENTE con este JSON exacto: {\"puntuacion\": N, \"explicacion\": \"texto\"}";
+            "Se te proporciona: el perfil y proyecto de un usuario, y los datos de una convocatoria real de la BDNS. " +
+            "Cuando se incluya la sección '=== CONTENIDO OFICIAL DE LA CONVOCATORIA ===', " +
+            "DEBES usarla como fuente primaria para determinar requisitos, beneficiarios y procedimiento. " +
+            "Si no hay contenido oficial, infiere a partir del título y organismo.\n\n" +
+            "TU TAREA tiene dos partes:\n\n" +
+            "PARTE 1 - MATCHING (puntuación 0-100):\n" +
+            "- 90-100: el perfil/proyecto cumple claramente los requisitos de la convocatoria.\n" +
+            "- 70-89: alta compatibilidad con algún matiz a verificar.\n" +
+            "- 50-69: compatible pero hay diferencias relevantes.\n" +
+            "- 30-49: compatibilidad baja.\n" +
+            "- 0-29: incompatible.\n" +
+            "La 'explicacion': máximo 2 frases. Primera: punto fuerte de compatibilidad. " +
+            "Segunda: requisito específico de la convocatoria que el usuario debe verificar.\n\n" +
+            "PARTE 2 - GUÍA DE SOLICITUD (basada en el contenido oficial si está disponible):\n" +
+            "5 pasos separados por | con información EXACTA y ESPECÍFICA de esta convocatoria:\n" +
+            "PASO 1: Requisitos concretos de elegibilidad extraídos del contenido oficial " +
+            "(tipo de beneficiario, sector, tamaño empresa, antigüedad mínima, etc.).\n" +
+            "PASO 2: Documentación específica requerida según el organismo convocante " +
+            "(certificados, memorias, planes, declaraciones responsables, etc.).\n" +
+            "PASO 3: Cómo y dónde presentar la solicitud — indica la sede electrónica o plataforma " +
+            "específica del organismo convocante mencionado.\n" +
+            "PASO 4: Plazos concretos — fecha de cierre si la conoces, plazo de resolución, " +
+            "inicio mínimo de actividad subvencionable.\n" +
+            "PASO 5: Advertencia clave o consejo específico para esta convocatoria " +
+            "(incompatibilidades, criterios de valoración, errores frecuentes).\n\n" +
+            "RESPONDE ÚNICAMENTE con este JSON (sin texto adicional fuera del JSON):\n" +
+            "{\"puntuacion\": N, \"explicacion\": \"texto\", \"sector\": \"UNA_PALABRA\", " +
+            "\"guia\": \"PASO 1: texto|PASO 2: texto|PASO 3: texto|PASO 4: texto|PASO 5: texto\"}";
 
     private static final String KEYWORDS_SYSTEM_PROMPT =
             "Eres un experto en subvenciones públicas españolas. " +
@@ -55,33 +72,72 @@ public class OpenAiMatchingService {
         this.objectMapper = new ObjectMapper();
     }
 
-    public ResultadoIA analizar(Proyecto proyecto, Perfil perfil, Convocatoria convocatoria) {
-        String userPrompt = construirPrompt(proyecto, perfil, convocatoria);
-        log.debug("Prompt OpenAI proy={} conv={}", proyecto.getId(), convocatoria.getId());
+    public ResultadoIA analizar(Proyecto proyecto, Perfil perfil, Convocatoria convocatoria, String detalleTexto) {
+        String userPrompt = construirPrompt(proyecto, perfil, convocatoria, detalleTexto);
+        log.debug("Prompt OpenAI proy={} conv={} detalle={}chars",
+                proyecto.getId(), convocatoria.getId(),
+                detalleTexto != null ? detalleTexto.length() : 0);
         String respuesta = openAiClient.chat(SYSTEM_PROMPT, userPrompt);
         return parsearRespuesta(respuesta, proyecto, convocatoria);
     }
 
-    private String construirPrompt(Proyecto proyecto, Perfil perfil, Convocatoria convocatoria) {
+    private String construirPrompt(Proyecto proyecto, Perfil perfil, Convocatoria convocatoria, String detalleTexto) {
         StringBuilder sb = new StringBuilder();
-        sb.append("PROYECTO\n");
+
+        // ── CONVOCATORIA (primero para que la IA la tenga clara antes de leer el perfil) ──
+        sb.append("=== CONVOCATORIA PÚBLICA (BDNS) ===\n");
+        sb.append("Título completo: ").append(convocatoria.getTitulo()).append("\n");
+        sb.append("Organismo convocante: ").append(Optional.ofNullable(convocatoria.getFuente()).orElse("No especificado")).append("\n");
+        sb.append("Tipo de convocatoria: ").append(Optional.ofNullable(convocatoria.getTipo()).orElse("No especificado")).append("\n");
+        sb.append("Ámbito geográfico: ").append(Optional.ofNullable(convocatoria.getUbicacion()).orElse("Nacional")).append("\n");
+        if (convocatoria.getSector() != null && !convocatoria.getSector().isBlank())
+            sb.append("Sector de la convocatoria: ").append(convocatoria.getSector()).append("\n");
+        if (convocatoria.getFechaCierre() != null)
+            sb.append("Fecha de cierre: ").append(convocatoria.getFechaCierre()).append("\n");
+        if (convocatoria.getUrlOficial() != null && !convocatoria.getUrlOficial().isBlank())
+            sb.append("URL oficial: ").append(convocatoria.getUrlOficial()).append("\n");
+
+        // ── CONTENIDO REAL DE LA CONVOCATORIA (obtenido de la API BDNS) ──
+        if (detalleTexto != null && !detalleTexto.isBlank()) {
+            sb.append("\n=== CONTENIDO OFICIAL DE LA CONVOCATORIA ===\n");
+            // Limitar a 1500 chars para no saturar el contexto de tokens
+            String detalleTruncado = detalleTexto.length() > 1500
+                    ? detalleTexto.substring(0, 1500) + "..."
+                    : detalleTexto;
+            sb.append(detalleTruncado).append("\n");
+            sb.append("(Usa este contenido para determinar requisitos EXACTOS y generar una guía precisa.)\n");
+        } else {
+            sb.append("\n(Nota: detalle de la convocatoria no disponible en la API. ");
+            sb.append("Infiere los requisitos a partir del título y organismo.)\n");
+        }
+
+        // ── PROYECTO DEL USUARIO ──
+        sb.append("\n=== PROYECTO DEL USUARIO ===\n");
         sb.append("Nombre: ").append(Optional.ofNullable(proyecto.getNombre()).orElse("Sin nombre")).append("\n");
         sb.append("Sector: ").append(Optional.ofNullable(proyecto.getSector()).orElse("No indicado")).append("\n");
         sb.append("Ubicación: ").append(Optional.ofNullable(proyecto.getUbicacion()).orElse("No indicada")).append("\n");
         sb.append("Descripción: ").append(Optional.ofNullable(proyecto.getDescripcion()).orElse("Sin descripción")).append("\n");
+
+        // ── PERFIL DE LA ENTIDAD ──
         if (perfil != null) {
+            sb.append("\n=== PERFIL DE LA ENTIDAD ===\n");
             sb.append("Tipo de entidad: ").append(Optional.ofNullable(perfil.getTipoEntidad()).orElse("No indicado")).append("\n");
+            sb.append("Sector de actividad: ").append(Optional.ofNullable(perfil.getSector()).orElse("No indicado")).append("\n");
+            sb.append("Ubicación: ").append(Optional.ofNullable(perfil.getUbicacion()).orElse("No indicada")).append("\n");
             sb.append("Objetivos: ").append(Optional.ofNullable(perfil.getObjetivos()).orElse("No indicados")).append("\n");
-            sb.append("Necesidades financiación: ").append(Optional.ofNullable(perfil.getNecesidadesFinanciacion()).orElse("No indicadas")).append("\n");
+            sb.append("Necesidades de financiación: ").append(Optional.ofNullable(perfil.getNecesidadesFinanciacion()).orElse("No indicadas")).append("\n");
             if (perfil.getDescripcionLibre() != null && !perfil.getDescripcionLibre().isBlank())
                 sb.append("Descripción libre: ").append(perfil.getDescripcionLibre()).append("\n");
         }
-        sb.append("\nCONVOCATORIA\n");
-        sb.append("Título: ").append(convocatoria.getTitulo()).append("\n");
-        sb.append("Tipo: ").append(Optional.ofNullable(convocatoria.getTipo()).orElse("No especificado")).append("\n");
-        sb.append("Sector: ").append(Optional.ofNullable(convocatoria.getSector()).orElse("Genérico")).append("\n");
-        sb.append("Ámbito: ").append(Optional.ofNullable(convocatoria.getUbicacion()).orElse("Nacional")).append("\n");
-        sb.append("Organismo: ").append(Optional.ofNullable(convocatoria.getFuente()).orElse("No especificado")).append("\n");
+
+        sb.append("\n=== INSTRUCCIÓN ===\n");
+        if (detalleTexto != null) {
+            sb.append("Usa el CONTENIDO OFICIAL de la convocatoria para generar requisitos y guía EXACTOS y precisos. ");
+            sb.append("La guía debe basarse en los datos reales del documento oficial.");
+        } else {
+            sb.append("No hay contenido oficial disponible. Infiere los requisitos y guía a partir del título y organismo.");
+        }
+
         return sb.toString();
     }
 
@@ -90,8 +146,12 @@ public class OpenAiMatchingService {
             JsonNode node = objectMapper.readTree(respuesta);
             int puntuacion = Math.max(0, Math.min(100, node.path("puntuacion").asInt()));
             String explicacion = node.path("explicacion").asText("Sin explicación disponible.");
-            log.debug("OpenAI punt={} proy={} conv={}", puntuacion, proyecto.getId(), convocatoria.getId());
-            return new ResultadoIA(puntuacion, explicacion, true);
+            String sector = node.path("sector").asText(null);
+            if (sector != null && sector.isBlank()) sector = null;
+            String guia = node.path("guia").asText(null);
+            if (guia != null && guia.isBlank()) guia = null;
+            log.debug("OpenAI punt={} sector='{}' proy={} conv={}", puntuacion, sector, proyecto.getId(), convocatoria.getId());
+            return new ResultadoIA(puntuacion, explicacion, sector, guia, true);
         } catch (Exception e) {
             log.warn("Error parseando OpenAI: {}. Raw={}", e.getMessage(), respuesta);
             throw new OpenAiClient.OpenAiUnavailableException("Respuesta no parseable: " + e.getMessage());
@@ -158,5 +218,5 @@ public class OpenAiMatchingService {
         return keywords;
     }
 
-    public record ResultadoIA(int puntuacion, String explicacion, boolean usadaIA) {}
+    public record ResultadoIA(int puntuacion, String explicacion, String sector, String guia, boolean usadaIA) {}
 }

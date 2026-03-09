@@ -19,6 +19,8 @@ public class RecomendacionDTO {
     private Long id;
     private int puntuacion;
     private String explicacion;
+    /** Guía paso a paso generada por IA para solicitar esta convocatoria. */
+    private String guia;
 
     /** Indica si la explicación y puntuación fueron generadas por OpenAI (true) o por el motor rule-based (false). */
     private boolean usadaIa;

@@ -25,6 +25,9 @@ public class ConvocatoriaDTO {
 
     private String fuente;
 
+    /** ID interno de la BDNS — permite obtener el detalle completo de la convocatoria. */
+    private String idBdns;
+
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate fechaCierre;
 
@@ -47,6 +50,9 @@ public class ConvocatoriaDTO {
 
     public String getFuente()                   { return fuente; }
     public void   setFuente(String fuente)      { this.fuente = fuente; }
+
+    public String getIdBdns()                   { return idBdns; }
+    public void   setIdBdns(String idBdns)      { this.idBdns = idBdns; }
 
     public LocalDate getFechaCierre()              { return fechaCierre; }
     public void      setFechaCierre(LocalDate f)   { this.fechaCierre = f; }

@@ -90,11 +90,28 @@ public class MotorMatchingService {
         List<Recomendacion> recomendaciones = new ArrayList<>();
         for (ConvocatoriaDTO dto : aEvaluar) {
             try {
+                // Obtener detalle completo de la convocatoria desde la API BDNS
+                // (objeto, beneficiarios, requisitos, bases reguladoras, etc.)
+                String detalleTexto = null;
+                if (dto.getIdBdns() != null) {
+                    detalleTexto = bdnsClientService.obtenerDetalleTexto(dto.getIdBdns());
+                    if (detalleTexto != null) {
+                        log.debug("Detalle BDNS obtenido para '{}': {} chars", dto.getTitulo(), detalleTexto.length());
+                    } else {
+                        log.debug("Detalle BDNS no disponible para '{}', usando solo título", dto.getTitulo());
+                    }
+                }
+
                 // Construir entidad temporal (sin ID) para pasarla a OpenAI
                 Convocatoria temporal = dtoAEntidad(dto);
-                OpenAiMatchingService.ResultadoIA resultado = openAiMatchingService.analizar(proyecto, perfil, temporal);
+                OpenAiMatchingService.ResultadoIA resultado =
+                        openAiMatchingService.analizar(proyecto, perfil, temporal, detalleTexto);
 
                 if (resultado.puntuacion() >= UMBRAL_RECOMENDACION) {
+                    // Enriquecer el DTO con el sector inferido por OpenAI antes de persistir
+                    if (resultado.sector() != null && (dto.getSector() == null || dto.getSector().isBlank())) {
+                        dto.setSector(resultado.sector());
+                    }
                     // Solo ahora persistimos la convocatoria en BD
                     Convocatoria persistida = persistirConvocatoria(dto);
                     Recomendacion rec = Recomendacion.builder()
@@ -102,11 +119,12 @@ public class MotorMatchingService {
                             .convocatoria(persistida)
                             .puntuacion(resultado.puntuacion())
                             .explicacion(resultado.explicacion())
+                            .guia(resultado.guia())
                             .usadaIa(true)
                             .build();
                     recomendaciones.add(recomendacionRepository.save(rec));
-                    log.info("Recomendación guardada: puntuacion={} titulo='{}'",
-                            resultado.puntuacion(), dto.getTitulo());
+                    log.info("Recomendación guardada: puntuacion={} sector='{}' titulo='{}'",
+                            resultado.puntuacion(), dto.getSector(), dto.getTitulo());
                 }
             } catch (OpenAiClient.OpenAiUnavailableException e) {
                 log.warn("OpenAI no disponible para '{}': {}", dto.getTitulo(), e.getMessage());
@@ -183,6 +201,14 @@ public class MotorMatchingService {
     private Convocatoria persistirConvocatoria(ConvocatoriaDTO dto) {
         return convocatoriaRepository
                 .findByTituloIgnoreCaseAndFuente(dto.getTitulo(), dto.getFuente())
+                .map(existente -> {
+                    // Actualizar sector si estaba nulo y ahora lo tenemos (inferido por IA)
+                    if (existente.getSector() == null && dto.getSector() != null) {
+                        existente.setSector(dto.getSector());
+                        return convocatoriaRepository.save(existente);
+                    }
+                    return existente;
+                })
                 .orElseGet(() -> convocatoriaRepository.save(dtoAEntidad(dto)));
     }
 

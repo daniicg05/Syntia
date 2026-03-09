@@ -36,6 +36,10 @@ public class Recomendacion {
     @Column(columnDefinition = "TEXT")
     private String explicacion;
 
+    /** Guía paso a paso generada por IA: requisitos, documentación y pasos en la web oficial. */
+    @Column(columnDefinition = "TEXT")
+    private String guia;
+
     /** true = generada por OpenAI, false = motor rule-based (fallback). */
     @Column(name = "usada_ia", nullable = false)
     @Builder.Default

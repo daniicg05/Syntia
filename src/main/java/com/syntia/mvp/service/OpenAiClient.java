@@ -40,8 +40,8 @@ public class OpenAiClient {
 
     private final RestClient restClient;
 
-    /** Máximo de caracteres del userPrompt para no desperdiciar tokens de entrada. */
-    private static final int MAX_PROMPT_CHARS = 1200;
+    /** Máximo de caracteres del userPrompt. Suficiente para detalle oficial + perfil + instrucción. */
+    private static final int MAX_PROMPT_CHARS = 4000;
 
     public OpenAiClient(RestClient.Builder builder) {
         // Timeout: 10s conexión, 30s lectura — evita colgarse indefinidamente

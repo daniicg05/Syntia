@@ -92,6 +92,7 @@ public class RecomendacionService {
         dto.setId(rec.getId());
         dto.setPuntuacion(rec.getPuntuacion());
         dto.setExplicacion(rec.getExplicacion());
+        dto.setGuia(rec.getGuia());
         dto.setUsadaIa(rec.isUsadaIa());
         dto.setConvocatoriaId(rec.getConvocatoria().getId());
         dto.setTitulo(rec.getConvocatoria().getTitulo());

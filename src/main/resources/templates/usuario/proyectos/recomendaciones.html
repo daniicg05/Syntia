@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="'Syntia – Recomendaciones: ' + ${proyecto.nombre}">Syntia – Recomendaciones</title>
     <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        .paso-item { border-left: 3px solid #0d6efd; padding-left: 1rem; margin-bottom: 1rem; }
+        .paso-item:last-child { margin-bottom: 0; }
+        .paso-numero { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #0d6efd; font-weight: 700; }
+        .puntuacion-alta  { color: #198754; }
+        .puntuacion-media { color: #ffc107; }
+        .puntuacion-baja  { color: #6c757d; }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -27,13 +35,12 @@
     <!-- Cabecera -->
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
         <div>
-            <h2 class="mb-1">Recomendaciones</h2>
+            <h2 class="mb-1">Recomendaciones IA</h2>
             <p class="text-muted mb-0">
                 Proyecto: <strong th:text="${proyecto.nombre}"></strong>
                 <span class="badge bg-secondary ms-2" th:if="${proyecto.sector}" th:text="${proyecto.sector}"></span>
             </p>
         </div>
-        <!-- Botón generar recomendaciones -->
         <form th:action="@{/usuario/proyectos/{id}/recomendaciones/generar(id=${proyecto.id})}" method="post">
             <button type="submit" class="btn btn-primary">
                 🤖 Analizar con IA
@@ -51,42 +58,48 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <!-- Aviso legal (requerido por documentación) -->
+    <!-- Aviso legal -->
     <div class="alert alert-info small mb-4" role="alert">
-        <strong>Aviso legal:</strong> Las recomendaciones se basan en información pública disponible y tienen
-        carácter orientativo. Verifica siempre los requisitos oficiales antes de presentar cualquier solicitud.
+        <strong>Aviso legal:</strong> Las recomendaciones tienen carácter orientativo.
+        Verifica siempre los requisitos oficiales antes de presentar cualquier solicitud.
     </div>
 
-    <!-- Sin recomendaciones aún -->
-    <div th:if="${totalSinFiltro == 0}" class="card shadow-sm mb-4">
+    <!-- Sin recomendaciones -->
+    <div th:if="${totalSinFiltro == 0}" class="card shadow-sm mb-4 border-0">
         <div class="card-body text-center py-5">
             <div class="fs-1 mb-2">🤖</div>
             <p class="text-muted mb-1">Aún no hay recomendaciones para este proyecto.</p>
-            <p class="text-muted small">Pulsa <strong>Analizar con IA</strong> para que el motor de inteligencia artificial
-               evalúe las convocatorias disponibles y genere recomendaciones personalizadas.</p>
+            <p class="text-muted small">Pulsa <strong>Analizar con IA</strong> para que el motor evalúe
+               convocatorias reales de la BDNS y genere recomendaciones personalizadas.</p>
         </div>
     </div>
 
-    <!-- Filtros (solo si hay recomendaciones) -->
-    <div th:if="${totalSinFiltro > 0}" class="card shadow-sm mb-4">
+    <!-- Filtros -->
+    <div th:if="${totalSinFiltro > 0}" class="card shadow-sm mb-4 border-0">
         <div class="card-body">
             <form th:action="@{/usuario/proyectos/{id}/recomendaciones(id=${proyecto.id})}"
                   method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Tipo</label>
-                    <select name="tipo" class="form-select form-select-sm">
+                    <select th:if="${!#lists.isEmpty(tipos)}" name="tipo" class="form-select form-select-sm">
                         <option value="">Todos los tipos</option>
                         <option th:each="t : ${tipos}" th:value="${t}" th:text="${t}"
                                 th:selected="${t == filtrTipo}"></option>
                     </select>
+                    <span th:unless="${!#lists.isEmpty(tipos)}"
+                          class="form-control form-control-sm text-muted bg-light"
+                          style="font-size:0.8rem;">Sin tipos disponibles</span>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Sector</label>
-                    <select name="sector" class="form-select form-select-sm">
+                    <select th:if="${!#lists.isEmpty(sectores)}" name="sector" class="form-select form-select-sm">
                         <option value="">Todos los sectores</option>
                         <option th:each="s : ${sectores}" th:value="${s}" th:text="${s}"
                                 th:selected="${s == filtrSector}"></option>
                     </select>
+                    <span th:unless="${!#lists.isEmpty(sectores)}"
+                          class="form-control form-control-sm text-muted bg-light"
+                          style="font-size:0.8rem;">Sin sectores — regenera el análisis</span>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Ubicación</label>
@@ -115,72 +128,131 @@
             </span>
         </p>
 
-        <!-- Sin resultados tras filtrar -->
         <div th:if="${#lists.isEmpty(recomendaciones)}" class="alert alert-warning">
             No hay recomendaciones que coincidan con los filtros seleccionados.
         </div>
 
-        <!-- Tarjetas de recomendaciones -->
+        <!-- ── TARJETAS ── -->
         <div class="row g-3">
             <div class="col-12" th:each="rec : ${recomendaciones}">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+
+                            <!-- Info principal -->
                             <div class="flex-grow-1">
-                                <h5 class="card-title mb-1" th:text="${rec.titulo}">Título convocatoria</h5>
+                                <h5 class="card-title mb-1" th:text="${rec.titulo}"></h5>
                                 <div class="mb-2">
-                                    <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
-                                    <span class="badge bg-secondary me-1" th:if="${rec.sector}" th:text="${rec.sector}"></span>
+                                    <span class="badge bg-primary me-1"    th:if="${rec.tipo}"     th:text="${rec.tipo}"></span>
+                                    <span class="badge bg-secondary me-1"  th:if="${rec.sector}"   th:text="${rec.sector}"></span>
                                     <span class="badge bg-info text-dark me-1" th:if="${rec.ubicacion}" th:text="${rec.ubicacion}"></span>
                                     <span class="badge bg-light text-dark border" th:if="${rec.fuente}" th:text="${rec.fuente}"></span>
-                                    <!-- Badge IA -->
-                                    <span th:if="${rec.usadaIa}"
-                                          class="badge bg-success ms-1"
-                                          title="Compatibilidad evaluada por inteligencia artificial (OpenAI)">
-                                        🤖 Analizado por IA
-                                    </span>
-                                    <span th:unless="${rec.usadaIa}"
-                                          class="badge bg-light text-muted border ms-1"
-                                          title="Compatibilidad evaluada por el motor de reglas">
-                                        ⚙️ Motor de reglas
-                                    </span>
+                                    <span th:if="${rec.usadaIa}" class="badge bg-success ms-1"
+                                          title="Analizado por OpenAI gpt-4.1">🤖 IA</span>
+                                    <span th:unless="${rec.usadaIa}" class="badge bg-light text-muted border ms-1">⚙️ Reglas</span>
                                 </div>
                                 <p class="text-muted small mb-2" th:text="${rec.explicacion}"></p>
                                 <p class="small mb-0" th:if="${rec.fechaCierre}">
                                     <strong>Fecha límite:</strong>
                                     <span th:text="${#temporals.format(rec.fechaCierre, 'dd/MM/yyyy')}"
-                                          th:classappend="${rec.fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-danger fw-bold' : ''">
+                                          th:classappend="${rec.fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-danger fw-bold' : 'text-muted'">
                                     </span>
                                 </p>
                             </div>
-                            <!-- Indicador de puntuación -->
-                            <div class="text-center ms-3" style="min-width: 80px;">
+
+                            <!-- Puntuación -->
+                            <div class="text-center ms-3" style="min-width:80px;">
                                 <div class="display-6 fw-bold"
-                                     th:classappend="${rec.puntuacion >= 70} ? 'text-success' : (${rec.puntuacion >= 40} ? 'text-warning' : 'text-secondary')"
-                                     th:text="${rec.puntuacion}">
-                                </div>
+                                     th:classappend="${rec.puntuacion >= 70} ? 'puntuacion-alta' : (${rec.puntuacion >= 40} ? 'puntuacion-media' : 'puntuacion-baja')"
+                                     th:text="${rec.puntuacion}"></div>
                                 <div class="small text-muted">/ 100</div>
-                                <div class="progress mt-1" style="height: 6px;">
+                                <div class="progress mt-1" style="height:6px;">
                                     <div class="progress-bar"
                                          th:classappend="${rec.puntuacion >= 70} ? 'bg-success' : (${rec.puntuacion >= 40} ? 'bg-warning' : 'bg-secondary')"
                                          role="progressbar"
-                                         th:style="'width: ' + ${rec.puntuacion} + '%'"
-                                         th:attr="aria-valuenow=${rec.puntuacion}">
-                                    </div>
+                                         th:style="'width:' + ${rec.puntuacion} + '%'"></div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Enlace a fuente oficial -->
-                        <div class="mt-3" th:if="${rec.urlOficial}">
-                            <a th:href="${rec.urlOficial}" target="_blank" rel="noopener noreferrer"
+
+                        <!-- ── BOTONES DE ACCIÓN ── -->
+                        <div class="mt-3 d-flex flex-wrap gap-2">
+
+                            <!-- Botón guía (solo si hay guía generada por IA) -->
+                            <button th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                    type="button"
+                                    class="btn btn-success btn-sm"
+                                    th:attr="data-bs-toggle='modal',
+                                             data-bs-target='#modalGuia' + ${rec.id},
+                                             data-titulo=${rec.titulo}">
+                                📋 Ver guía de solicitud
+                            </button>
+
+                            <!-- Enlace convocatoria oficial -->
+                            <a th:if="${rec.urlOficial}"
+                               th:href="${rec.urlOficial}"
+                               target="_blank" rel="noopener noreferrer"
                                class="btn btn-outline-primary btn-sm">
                                 Ver convocatoria oficial ↗
                             </a>
                         </div>
                     </div>
                 </div>
+
+                <!-- ── MODAL GUÍA ── -->
+                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                     th:id="'modalGuia' + ${rec.id}"
+                     class="modal fade" tabindex="-1" aria-modal="true" role="dialog">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">📋 Guía de solicitud</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+
+                                <!-- Título de la convocatoria -->
+                                <div class="alert alert-light border mb-4">
+                                    <div class="small text-muted mb-1">Convocatoria</div>
+                                    <strong th:text="${rec.titulo}"></strong>
+                                    <div class="mt-1">
+                                        <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
+                                        <span class="badge bg-secondary"   th:if="${rec.sector}" th:text="${rec.sector}"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Pasos: separados por | -->
+                                <div th:with="pasos=${#strings.arraySplit(rec.guia, '|')}">
+                                    <div th:each="paso, iterStat : ${pasos}" th:if="${!#strings.isEmpty(#strings.trim(paso))}"
+                                         class="paso-item">
+                                        <div class="paso-numero">Paso <span th:text="${iterStat.index + 1}"></span></div>
+                                        <div class="small mt-1" th:text="${#strings.trim(paso)}"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Aviso -->
+                                <div class="alert alert-warning small mt-4 mb-0">
+                                    ⚠️ Esta guía es orientativa y fue generada por IA. Verifica siempre los
+                                    requisitos oficiales en la convocatoria antes de presentar tu solicitud.
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <a th:if="${rec.urlOficial}"
+                                   th:href="${rec.urlOficial}"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="btn btn-primary btn-sm">
+                                    Ir a la convocatoria oficial ↗
+                                </a>
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /modal -->
+
             </div>
         </div>
+        <!-- /tarjetas -->
 
     </div><!-- fin resultados -->
 
@@ -190,4 +262,3 @@
 <footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
-
