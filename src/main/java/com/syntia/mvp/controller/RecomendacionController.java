@@ -99,7 +99,10 @@ public class RecomendacionController {
 
         List<?> generadas = motorMatchingService.generarRecomendaciones(proyecto);
 
-        if (generadas.isEmpty()) {
+        // Contar desde BD para que el mensaje coincida exactamente con lo que mostrará la vista
+        long totalEnBd = recomendacionService.contarPorProyecto(proyectoId);
+
+        if (totalEnBd == 0) {
             redirectAttributes.addFlashAttribute("aviso",
                     "El motor de IA no encontró convocatorias compatibles con tu proyecto. " +
                     "Completa el sector, la ubicación y la descripción para mejorar los resultados.");
@@ -107,10 +110,8 @@ public class RecomendacionController {
             long conIa = generadas.stream()
                     .filter(r -> r instanceof com.syntia.mvp.model.Recomendacion rec && rec.isUsadaIa())
                     .count();
-            String msg = "Se han generado " + generadas.size() + " recomendaciones para tu proyecto.";
-            if (conIa > 0) {
-                msg += " " + conIa + " analizadas por IA.";
-            }
+            String msg = "Se han encontrado " + totalEnBd + " recomendaciones para tu proyecto.";
+            if (conIa > 0) msg += " " + conIa + " analizadas por IA.";
             redirectAttributes.addFlashAttribute("exito", msg);
         }
         return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";
