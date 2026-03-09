@@ -54,14 +54,17 @@ public class MotorMatchingService {
         this.convocatoriaService = convocatoriaService;
     }
 
+    /** Número máximo de convocatorias a evaluar con IA por análisis. */
+    private static final int MAX_CANDIDATAS_IA = 20;
+
     /**
      * Genera y persiste recomendaciones para un proyecto.
      * <p>
-     * Estrategia de búsqueda en las 615.000+ convocatorias de la BDNS:
+     * Estrategia:
      * <ol>
-     *   <li>OpenAI analiza el proyecto + perfil y genera keywords de búsqueda</li>
-     *   <li>Busca en la API de BDNS con esas keywords → importa candidatas a la BD local</li>
-     *   <li>OpenAI evalúa cada convocatoria candidata y genera puntuación + explicación</li>
+     *   <li>OpenAI genera keywords → búsqueda en BDNS → importa candidatas relevantes</li>
+     *   <li>Preselección rule-based (rápida) para quedarse con el top {@value MAX_CANDIDATAS_IA}</li>
+     *   <li>OpenAI evalúa SOLO esas candidatas → genera puntuación + explicación</li>
      * </ol>
      *
      * @param proyecto proyecto para el que se generan recomendaciones
@@ -74,14 +77,31 @@ public class MotorMatchingService {
         // 1. Cargar el perfil del usuario
         Perfil perfil = perfilService.obtenerPerfil(proyecto.getUsuario().getId()).orElse(null);
 
-        // 2. Generar keywords de búsqueda con OpenAI y buscar en BDNS (615K convocatorias)
-        List<Convocatoria> convocatorias = buscarConvocatoriasRelevantes(proyecto, perfil);
-        log.info("Convocatorias candidatas para matching: {}", convocatorias.size());
+        // 2. Buscar candidatas en BDNS con keywords generadas por OpenAI
+        List<Convocatoria> candidatas = buscarConvocatoriasRelevantes(proyecto, perfil);
+        log.info("Convocatorias candidatas tras búsqueda BDNS: {}", candidatas.size());
 
-        // 3. Evaluar cada convocatoria candidata con OpenAI
+        // 3. Preselección rule-based: ordenar por puntuación y tomar el top MAX_CANDIDATAS_IA
+        //    Esto evita hacer N llamadas a OpenAI cuando hay 100+ candidatas
+        List<Convocatoria> topCandidatas = candidatas.stream()
+                .filter(c -> calcularPuntuacion(proyecto, c) > 0)
+                .sorted((a, b) -> Integer.compare(
+                        calcularPuntuacion(proyecto, b),
+                        calcularPuntuacion(proyecto, a)))
+                .limit(MAX_CANDIDATAS_IA)
+                .toList();
+
+        // Si el filtro rule-based no deja nada, tomar directamente las primeras MAX_CANDIDATAS_IA
+        if (topCandidatas.isEmpty()) {
+            topCandidatas = candidatas.stream().limit(MAX_CANDIDATAS_IA).toList();
+        }
+
+        log.info("Top {} candidatas preseleccionadas por rule-based para evaluar con IA", topCandidatas.size());
+
+        // 4. Evaluar SOLO las top candidatas con OpenAI
         List<Recomendacion> recomendaciones = new ArrayList<>();
 
-        for (Convocatoria convocatoria : convocatorias) {
+        for (Convocatoria convocatoria : topCandidatas) {
             OpenAiMatchingService.ResultadoIA resultado = evaluarConFallback(proyecto, perfil, convocatoria);
 
             if (resultado.puntuacion() > 0) {
@@ -98,8 +118,8 @@ public class MotorMatchingService {
 
         recomendaciones.sort((a, b) -> Integer.compare(b.getPuntuacion(), a.getPuntuacion()));
 
-        log.info("Motor matching completado: proyecto={} candidatas={} recomendaciones={}",
-                proyecto.getId(), convocatorias.size(), recomendaciones.size());
+        log.info("Motor matching completado: proyecto={} candidatas={} evaluadas={} recomendaciones={}",
+                proyecto.getId(), candidatas.size(), topCandidatas.size(), recomendaciones.size());
 
         return recomendaciones;
     }
@@ -108,24 +128,38 @@ public class MotorMatchingService {
 
     /**
      * Busca convocatorias relevantes en la BDNS usando keywords generadas por OpenAI.
-     * Cada keyword genera una búsqueda contra las 615.000+ convocatorias de la BDNS,
-     * importando hasta 50 resultados por keyword.
+     * Devuelve SOLO las convocatorias importadas en esta búsqueda (no findAll).
      */
     private List<Convocatoria> buscarConvocatoriasRelevantes(Proyecto proyecto, Perfil perfil) {
+        List<Convocatoria> relevantes = new ArrayList<>();
         try {
             List<String> keywords = openAiMatchingService.generarKeywordsBusqueda(proyecto, perfil);
             for (String kw : keywords) {
                 try {
-                    convocatoriaService.buscarEImportarDesdeBdns(kw, 1);
+                    List<Convocatoria> encontradas = convocatoriaService.buscarEImportarDesdeBdns(kw, 1);
+                    // Añadir solo las que aún no están en la lista (deduplicar por ID)
+                    for (Convocatoria c : encontradas) {
+                        if (relevantes.stream().noneMatch(r -> r.getId().equals(c.getId()))) {
+                            relevantes.add(c);
+                        }
+                    }
                 } catch (Exception e) {
                     log.warn("Error buscando en BDNS con keywords '{}': {}", kw, e.getMessage());
                 }
             }
         } catch (Exception e) {
-            log.warn("Error en búsqueda BDNS, usando convocatorias existentes en BD: {}", e.getMessage());
+            log.warn("Error generando keywords con OpenAI: {}", e.getMessage());
         }
 
-        return convocatoriaRepository.findAll();
+        // Fallback solo si BDNS no devolvió nada: usar una muestra limitada de la BD local
+        if (relevantes.isEmpty()) {
+            log.info("BDNS no devolvió candidatas, usando muestra local de BD (max {})", MAX_CANDIDATAS_IA);
+            relevantes = convocatoriaRepository.findAll().stream()
+                    .limit(MAX_CANDIDATAS_IA * 3L)  // muestra amplia para que rule-based filtre
+                    .toList();
+        }
+
+        return relevantes;
     }
 
     // ── Evaluación con fallback ──────────────────────────────────────────────

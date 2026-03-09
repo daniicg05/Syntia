@@ -50,5 +50,12 @@ public interface ConvocatoriaRepository extends JpaRepository<Convocatoria, Long
      */
     @Query("SELECT DISTINCT c.tipo FROM Convocatoria c WHERE c.tipo IS NOT NULL ORDER BY c.tipo")
     List<String> findTiposDistintos();
+
+    /**
+     * Devuelve las convocatorias cuyos títulos estén en la lista dada.
+     * Usado por buscarEImportarDesdeBdns para devolver solo las relevantes a una búsqueda.
+     */
+    @Query("SELECT c FROM Convocatoria c WHERE c.titulo IN :titulos")
+    List<Convocatoria> buscarPorTitulos(@Param("titulos") List<String> titulos);
 }
 

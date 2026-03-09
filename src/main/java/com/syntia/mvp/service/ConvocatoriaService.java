@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -109,16 +110,20 @@ public class ConvocatoriaService {
     @Transactional
     public List<Convocatoria> buscarEImportarDesdeBdns(String keywords, int paginas) {
         int totalNuevas = 0;
+        // Recopilar los títulos importados en esta búsqueda para recuperarlas luego
+        List<String> titulosImportados = new ArrayList<>();
         for (int pag = 0; pag < paginas; pag++) {
             List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTexto(keywords, pag, 50);
             if (encontradas.isEmpty()) break;
+            encontradas.forEach(dto -> { if (dto.getTitulo() != null) titulosImportados.add(dto.getTitulo()); });
             totalNuevas += persistirNuevas(encontradas);
         }
         log.info("BDNS búsqueda '{}': {} páginas consultadas, {} nuevas importadas",
                 keywords, paginas, totalNuevas);
 
-        // Devolver todas las convocatorias de la BD (las recién importadas + las que ya existían)
-        return convocatoriaRepository.findAll();
+        // Devolver SOLO las convocatorias relevantes a esta búsqueda (no findAll)
+        if (titulosImportados.isEmpty()) return List.of();
+        return convocatoriaRepository.buscarPorTitulos(titulosImportados);
     }
 
     private int persistirNuevas(List<ConvocatoriaDTO> importadas) {
