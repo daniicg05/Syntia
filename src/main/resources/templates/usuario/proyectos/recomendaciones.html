@@ -178,12 +178,10 @@
                         <!-- ── BOTONES DE ACCIÓN ── -->
                         <div class="mt-3 d-flex flex-wrap gap-2">
 
-                            <!-- Botón guía (solo si hay guía generada por IA) -->
-                            <button th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
-                                    type="button"
+                            <!-- Botón guía: siempre visible -->
+                            <button type="button"
                                     class="btn btn-success btn-sm"
-                                    data-bs-toggle="modal"
-                                    th:attr="data-bs-target=|#modalGuia${rec.id}|">
+                                    th:onclick="|abrirGuia('modalGuia${rec.id}')|">
                                 📋 Ver guía de solicitud
                             </button>
 
@@ -199,9 +197,8 @@
                 </div>
 
                 <!-- ── MODAL GUÍA ── -->
-                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
-                     th:id="|modalGuia${rec.id}|"
-                     class="modal fade" tabindex="-1" aria-modal="true" role="dialog">
+                <div th:id="|modalGuia${rec.id}|"
+                     class="modal fade" tabindex="-1" role="dialog">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
@@ -211,18 +208,27 @@
                             <div class="modal-body">
 
                                 <!-- Título de la convocatoria -->
-                                <div class="alert alert-light border mb-4">
+                                <div class="alert alert-light border mb-3">
                                     <div class="small text-muted mb-1">Convocatoria</div>
                                     <strong th:text="${rec.titulo}"></strong>
                                     <div class="mt-1">
                                         <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
-                                        <span class="badge bg-secondary"   th:if="${rec.sector}" th:text="${rec.sector}"></span>
+                                        <span class="badge bg-secondary" th:if="${rec.sector}" th:text="${rec.sector}"></span>
                                     </div>
                                 </div>
 
-                                <!-- Pasos: separados por | -->
-                                <div th:with="pasos=${#strings.arraySplit(rec.guia, '|')}">
-                                    <div th:each="paso, iterStat : ${pasos}" th:if="${!#strings.isEmpty(#strings.trim(paso))}"
+                                <!-- Sin guía todavía -->
+                                <div th:if="${rec.guia == null or #strings.isEmpty(rec.guia)}"
+                                     class="alert alert-info">
+                                    Esta recomendación no tiene guía generada todavía.<br>
+                                    Pulsa <strong>⚡ Analizar con IA</strong> para regenerar las recomendaciones con guía incluida.
+                                </div>
+
+                                <!-- Pasos separados por | -->
+                                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                     th:with="pasos=${#strings.arraySplit(rec.guia, '|')}">
+                                    <div th:each="paso, iterStat : ${pasos}"
+                                         th:if="${!#strings.isEmpty(#strings.trim(paso))}"
                                          class="paso-item">
                                         <div class="paso-numero">Paso <span th:text="${iterStat.index + 1}"></span></div>
                                         <div class="small mt-1" th:text="${#strings.trim(paso)}"></div>
@@ -230,7 +236,8 @@
                                 </div>
 
                                 <!-- Aviso -->
-                                <div class="alert alert-warning small mt-4 mb-0">
+                                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                     class="alert alert-warning small mt-4 mb-0">
                                     ⚠️ Esta guía es orientativa y fue generada por IA. Verifica siempre los
                                     requisitos oficiales en la convocatoria antes de presentar tu solicitud.
                                 </div>
@@ -257,7 +264,15 @@
 
 </div>
 
-<script th:src="@{/bootsprap/bootstrap.bundle.min.js}"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function abrirGuia(modalId) {
+    var el = document.getElementById(modalId);
+    if (!el) { console.error('Modal no encontrado:', modalId); return; }
+    var modal = new bootstrap.Modal(el);
+    modal.show();
+}
+</script>
 <footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
