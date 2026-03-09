@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repositorio JPA para la entidad Convocatoria.
@@ -23,9 +24,14 @@ public interface ConvocatoriaRepository extends JpaRepository<Convocatoria, Long
     /**
      * Verifica si ya existe una convocatoria con el mismo titulo (ignorando mayusculas) y fuente.
      * Usado para evitar duplicados al importar desde BDNS.
-     * Spring Data JPA genera la implementacion automaticamente por convención de nombre.
      */
     boolean existsByTituloIgnoreCaseAndFuente(String titulo, String fuente);
+
+    /**
+     * Busca una convocatoria por título (ignorando mayúsculas) y fuente.
+     * Usado por el motor de matching para no duplicar convocatorias al persistir.
+     */
+    Optional<Convocatoria> findByTituloIgnoreCaseAndFuente(String titulo, String fuente);
 
     /**
      * Filtra convocatorias por sector y/o ubicación y/o tipo.

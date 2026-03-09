@@ -4,6 +4,7 @@ import com.syntia.mvp.model.Convocatoria;
 import com.syntia.mvp.model.Perfil;
 import com.syntia.mvp.model.Proyecto;
 import com.syntia.mvp.model.Recomendacion;
+import com.syntia.mvp.model.dto.ConvocatoriaDTO;
 import com.syntia.mvp.repository.ConvocatoriaRepository;
 import com.syntia.mvp.repository.RecomendacionRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -11,255 +12,182 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Motor de interpretación y matching de Syntia.
+ * Motor de matching de Syntia.
  * <p>
- * Estrategia híbrida:
+ * Flujo:
  * <ol>
- *   <li><b>OpenAI (primario):</b> análisis semántico del perfil + proyecto vs. convocatoria.
- *       Genera puntuación 0-100 y explicación comprensible en lenguaje natural.</li>
- *   <li><b>Rule-based (fallback):</b> scoring determinista basado en campos estructurados.
- *       Se activa automáticamente si la API de OpenAI no está configurada o falla.</li>
+ *   <li>OpenAI lee el perfil + proyecto y genera keywords de búsqueda.</li>
+ *   <li>Se consulta la API BDNS directamente con esas keywords (sin acumular en BD).</li>
+ *   <li>OpenAI evalúa cada resultado y le asigna puntuación 0-100 + explicación.</li>
+ *   <li>Solo las convocatorias que superan el umbral se persisten en BD y se guardan como recomendación.</li>
  * </ol>
- * <p>
- * Algoritmo rule-based (fallback, máximo 100 puntos):
- * <ul>
- *   <li>+40 pts — sector del proyecto coincide con el sector de la convocatoria</li>
- *   <li>+30 pts — ubicación del proyecto coincide con la ubicación de la convocatoria</li>
- *   <li>+20 pts — la convocatoria es de ámbito nacional</li>
- *   <li>+10 pts — la descripción del proyecto contiene palabras clave del título</li>
- * </ul>
  */
 @Slf4j
 @Service
 public class MotorMatchingService {
 
+    /** Puntuación mínima (0-100) para que una convocatoria se guarde como recomendación. */
+    private static final int UMBRAL_RECOMENDACION = 40;
+
+    /** Máximo de resultados a traer de BDNS por cada keyword. */
+    private static final int RESULTADOS_POR_KEYWORD = 20;
+
+    /** Máximo de candidatas únicas a evaluar con IA (evita llamadas excesivas a OpenAI). */
+    private static final int MAX_CANDIDATAS_IA = 20;
+
     private final ConvocatoriaRepository convocatoriaRepository;
     private final RecomendacionRepository recomendacionRepository;
     private final PerfilService perfilService;
     private final OpenAiMatchingService openAiMatchingService;
-    private final ConvocatoriaService convocatoriaService;
+    private final BdnsClientService bdnsClientService;
 
     public MotorMatchingService(ConvocatoriaRepository convocatoriaRepository,
                                 RecomendacionRepository recomendacionRepository,
                                 PerfilService perfilService,
                                 OpenAiMatchingService openAiMatchingService,
-                                ConvocatoriaService convocatoriaService) {
+                                BdnsClientService bdnsClientService) {
         this.convocatoriaRepository = convocatoriaRepository;
         this.recomendacionRepository = recomendacionRepository;
         this.perfilService = perfilService;
         this.openAiMatchingService = openAiMatchingService;
-        this.convocatoriaService = convocatoriaService;
+        this.bdnsClientService = bdnsClientService;
     }
-
-    /** Número máximo de convocatorias a evaluar con IA por análisis. */
-    private static final int MAX_CANDIDATAS_IA = 20;
 
     /**
      * Genera y persiste recomendaciones para un proyecto.
-     * <p>
-     * Estrategia:
-     * <ol>
-     *   <li>OpenAI genera keywords → búsqueda en BDNS → importa candidatas relevantes</li>
-     *   <li>Preselección rule-based (rápida) para quedarse con el top {@value MAX_CANDIDATAS_IA}</li>
-     *   <li>OpenAI evalúa SOLO esas candidatas → genera puntuación + explicación</li>
-     * </ol>
      *
-     * @param proyecto proyecto para el que se generan recomendaciones
-     * @return lista de recomendaciones persistidas, ordenadas por puntuación desc
+     * @param proyecto proyecto del usuario
+     * @return lista de recomendaciones ordenadas por puntuación desc
      */
     @Transactional
     public List<Recomendacion> generarRecomendaciones(Proyecto proyecto) {
+        // Limpiar recomendaciones anteriores
         recomendacionRepository.deleteByProyectoId(proyecto.getId());
 
-        // 1. Cargar el perfil del usuario
+        // 1. Cargar perfil del usuario
         Perfil perfil = perfilService.obtenerPerfil(proyecto.getUsuario().getId()).orElse(null);
 
-        // 2. Buscar candidatas en BDNS con keywords generadas por OpenAI
-        List<Convocatoria> candidatas = buscarConvocatoriasRelevantes(proyecto, perfil);
-        log.info("Convocatorias candidatas tras búsqueda BDNS: {}", candidatas.size());
+        // 2. OpenAI genera keywords basadas en perfil + proyecto
+        List<String> keywords = generarKeywords(proyecto, perfil);
+        log.info("Keywords generadas para proyecto {}: {}", proyecto.getId(), keywords);
 
-        // 3. Preselección rule-based: ordenar por puntuación y tomar el top MAX_CANDIDATAS_IA
-        //    Esto evita hacer N llamadas a OpenAI cuando hay 100+ candidatas
-        List<Convocatoria> topCandidatas = candidatas.stream()
-                .filter(c -> calcularPuntuacion(proyecto, c) > 0)
-                .sorted((a, b) -> Integer.compare(
-                        calcularPuntuacion(proyecto, b),
-                        calcularPuntuacion(proyecto, a)))
+        // 3. Buscar en API BDNS directamente con esas keywords (deduplicando por título)
+        Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords);
+        log.info("Candidatas únicas obtenidas de BDNS: {}", candidatasUnicas.size());
+
+        // 4. Limitar a MAX_CANDIDATAS_IA para no hacer demasiadas llamadas a OpenAI
+        List<ConvocatoriaDTO> aEvaluar = candidatasUnicas.values().stream()
                 .limit(MAX_CANDIDATAS_IA)
                 .toList();
 
-        // Si el filtro rule-based no deja nada, tomar directamente las primeras MAX_CANDIDATAS_IA
-        if (topCandidatas.isEmpty()) {
-            topCandidatas = candidatas.stream().limit(MAX_CANDIDATAS_IA).toList();
-        }
-
-        log.info("Top {} candidatas preseleccionadas por rule-based para evaluar con IA", topCandidatas.size());
-
-        // 4. Evaluar SOLO las top candidatas con OpenAI
+        // 5. Evaluar cada candidata con OpenAI y persistir solo las que superen el umbral
         List<Recomendacion> recomendaciones = new ArrayList<>();
+        for (ConvocatoriaDTO dto : aEvaluar) {
+            try {
+                // Construir entidad temporal (sin ID) para pasarla a OpenAI
+                Convocatoria temporal = dtoAEntidad(dto);
+                OpenAiMatchingService.ResultadoIA resultado = openAiMatchingService.analizar(proyecto, perfil, temporal);
 
-        for (Convocatoria convocatoria : topCandidatas) {
-            OpenAiMatchingService.ResultadoIA resultado = evaluarConFallback(proyecto, perfil, convocatoria);
-
-            if (resultado.puntuacion() > 0) {
-                Recomendacion rec = Recomendacion.builder()
-                        .proyecto(proyecto)
-                        .convocatoria(convocatoria)
-                        .puntuacion(resultado.puntuacion())
-                        .explicacion(resultado.explicacion())
-                        .usadaIa(resultado.usadaIA())
-                        .build();
-                recomendaciones.add(recomendacionRepository.save(rec));
+                if (resultado.puntuacion() >= UMBRAL_RECOMENDACION) {
+                    // Solo ahora persistimos la convocatoria en BD
+                    Convocatoria persistida = persistirConvocatoria(dto);
+                    Recomendacion rec = Recomendacion.builder()
+                            .proyecto(proyecto)
+                            .convocatoria(persistida)
+                            .puntuacion(resultado.puntuacion())
+                            .explicacion(resultado.explicacion())
+                            .usadaIa(true)
+                            .build();
+                    recomendaciones.add(recomendacionRepository.save(rec));
+                    log.info("Recomendación guardada: puntuacion={} titulo='{}'",
+                            resultado.puntuacion(), dto.getTitulo());
+                }
+            } catch (OpenAiClient.OpenAiUnavailableException e) {
+                log.warn("OpenAI no disponible para '{}': {}", dto.getTitulo(), e.getMessage());
+            } catch (Exception e) {
+                log.warn("Error evaluando convocatoria '{}': {}", dto.getTitulo(), e.getMessage());
             }
         }
 
         recomendaciones.sort((a, b) -> Integer.compare(b.getPuntuacion(), a.getPuntuacion()));
-
-        log.info("Motor matching completado: proyecto={} candidatas={} evaluadas={} recomendaciones={}",
-                proyecto.getId(), candidatas.size(), topCandidatas.size(), recomendaciones.size());
+        log.info("Matching completado: proyecto={} keywords={} candidatas={} recomendaciones={}",
+                proyecto.getId(), keywords.size(), aEvaluar.size(), recomendaciones.size());
 
         return recomendaciones;
     }
 
-    // ── Búsqueda inteligente en BDNS ─────────────────────────────────────────
+    // ── Keywords ─────────────────────────────────────────────────────────────
 
-    /**
-     * Busca convocatorias relevantes en la BDNS usando keywords generadas por OpenAI.
-     * Devuelve SOLO las convocatorias importadas en esta búsqueda (no findAll).
-     */
-    private List<Convocatoria> buscarConvocatoriasRelevantes(Proyecto proyecto, Perfil perfil) {
-        List<Convocatoria> relevantes = new ArrayList<>();
+    private List<String> generarKeywords(Proyecto proyecto, Perfil perfil) {
         try {
-            List<String> keywords = openAiMatchingService.generarKeywordsBusqueda(proyecto, perfil);
-            for (String kw : keywords) {
-                try {
-                    List<Convocatoria> encontradas = convocatoriaService.buscarEImportarDesdeBdns(kw, 1);
-                    // Añadir solo las que aún no están en la lista (deduplicar por ID)
-                    for (Convocatoria c : encontradas) {
-                        if (relevantes.stream().noneMatch(r -> r.getId().equals(c.getId()))) {
-                            relevantes.add(c);
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warn("Error buscando en BDNS con keywords '{}': {}", kw, e.getMessage());
-                }
-            }
+            return openAiMatchingService.generarKeywordsBusqueda(proyecto, perfil);
         } catch (Exception e) {
-            log.warn("Error generando keywords con OpenAI: {}", e.getMessage());
+            log.warn("Error generando keywords con OpenAI, usando datos básicos del proyecto: {}", e.getMessage());
+            return generarKeywordsBasicas(proyecto, perfil);
         }
-
-        // Fallback solo si BDNS no devolvió nada: usar una muestra limitada de la BD local
-        if (relevantes.isEmpty()) {
-            log.info("BDNS no devolvió candidatas, usando muestra local de BD (max {})", MAX_CANDIDATAS_IA);
-            relevantes = convocatoriaRepository.findAll().stream()
-                    .limit(MAX_CANDIDATAS_IA * 3L)  // muestra amplia para que rule-based filtre
-                    .toList();
-        }
-
-        return relevantes;
     }
 
-    // ── Evaluación con fallback ──────────────────────────────────────────────
+    private List<String> generarKeywordsBasicas(Proyecto proyecto, Perfil perfil) {
+        List<String> kw = new ArrayList<>();
+        if (proyecto.getSector() != null && !proyecto.getSector().isBlank())
+            kw.add(proyecto.getSector());
+        if (proyecto.getNombre() != null && !proyecto.getNombre().isBlank())
+            kw.add(proyecto.getNombre());
+        if (perfil != null && perfil.getTipoEntidad() != null && !perfil.getTipoEntidad().isBlank())
+            kw.add(perfil.getTipoEntidad() + " subvencion");
+        if (kw.isEmpty()) kw.add("subvencion empresa");
+        return kw;
+    }
+
+    // ── Búsqueda en BDNS ─────────────────────────────────────────────────────
 
     /**
-     * Intenta evaluar con OpenAI. Si falla, aplica el motor rule-based.
+     * Busca en la API BDNS con cada keyword y devuelve un mapa título→DTO deduplicado.
      */
-    private OpenAiMatchingService.ResultadoIA evaluarConFallback(
-            Proyecto proyecto, Perfil perfil, Convocatoria convocatoria) {
-        try {
-            return openAiMatchingService.analizar(proyecto, perfil, convocatoria);
-        } catch (OpenAiClient.OpenAiUnavailableException e) {
-            log.debug("OpenAI no disponible, usando motor rule-based: {}", e.getMessage());
-            return evaluarRuleBase(proyecto, convocatoria);
-        }
-    }
-
-    // ── Motor rule-based (fallback) ──────────────────────────────────────────
-
-    private OpenAiMatchingService.ResultadoIA evaluarRuleBase(Proyecto proyecto, Convocatoria convocatoria) {
-        int puntuacion = calcularPuntuacion(proyecto, convocatoria);
-        String explicacion = puntuacion > 0
-                ? generarExplicacion(proyecto, convocatoria, puntuacion)
-                : "";
-        return new OpenAiMatchingService.ResultadoIA(puntuacion, explicacion, false);
-    }
-
-    private int calcularPuntuacion(Proyecto proyecto, Convocatoria convocatoria) {
-        int puntuacion = 0;
-
-        // +40 pts: coincidencia de sector
-        if (proyecto.getSector() != null && convocatoria.getSector() != null
-                && proyecto.getSector().equalsIgnoreCase(convocatoria.getSector())) {
-            puntuacion += 40;
-        }
-
-        // +30 pts: coincidencia de ubicación exacta
-        if (proyecto.getUbicacion() != null && convocatoria.getUbicacion() != null
-                && proyecto.getUbicacion().equalsIgnoreCase(convocatoria.getUbicacion())) {
-            puntuacion += 30;
-        }
-
-        // +20 pts: convocatoria de ámbito nacional
-        if (convocatoria.getUbicacion() == null
-                || convocatoria.getUbicacion().isBlank()
-                || convocatoria.getUbicacion().equalsIgnoreCase("Nacional")) {
-            puntuacion += 20;
-        }
-
-        // +10 pts: palabras clave del título en la descripción del proyecto
-        if (proyecto.getDescripcion() != null && convocatoria.getTitulo() != null
-                && contieneKeywords(proyecto.getDescripcion(), convocatoria.getTitulo())) {
-            puntuacion += 10;
-        }
-
-        return puntuacion;
-    }
-
-    private boolean contieneKeywords(String descripcion, String titulo) {
-        String descLower = descripcion.toLowerCase();
-        String[] palabras = titulo.toLowerCase().split("\\s+");
-        for (String palabra : palabras) {
-            if (palabra.length() > 4 && descLower.contains(palabra)) {
-                return true;
+    private Map<String, ConvocatoriaDTO> buscarEnBdns(List<String> keywords) {
+        Map<String, ConvocatoriaDTO> resultado = new LinkedHashMap<>();
+        for (String kw : keywords) {
+            try {
+                List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTexto(kw, 0, RESULTADOS_POR_KEYWORD);
+                for (ConvocatoriaDTO dto : encontradas) {
+                    if (dto.getTitulo() != null && !resultado.containsKey(dto.getTitulo())) {
+                        resultado.put(dto.getTitulo(), dto);
+                    }
+                }
+                log.info("BDNS '{}': {} resultados ({} únicos acumulados)", kw, encontradas.size(), resultado.size());
+            } catch (Exception e) {
+                log.warn("Error consultando BDNS con keyword '{}': {}", kw, e.getMessage());
             }
         }
-        return false;
+        return resultado;
     }
 
-    private String generarExplicacion(Proyecto proyecto, Convocatoria convocatoria, int puntuacion) {
-        StringBuilder sb = new StringBuilder();
+    // ── Persistencia selectiva ────────────────────────────────────────────────
 
-        if (proyecto.getSector() != null && convocatoria.getSector() != null
-                && proyecto.getSector().equalsIgnoreCase(convocatoria.getSector())) {
-            sb.append("El sector de tu proyecto (").append(proyecto.getSector())
-              .append(") coincide con el sector de esta convocatoria. ");
-        }
+    /**
+     * Persiste una convocatoria en BD solo si no existe ya (por título + fuente).
+     * Devuelve la entidad con ID válido para usarla en la recomendación.
+     */
+    private Convocatoria persistirConvocatoria(ConvocatoriaDTO dto) {
+        return convocatoriaRepository
+                .findByTituloIgnoreCaseAndFuente(dto.getTitulo(), dto.getFuente())
+                .orElseGet(() -> convocatoriaRepository.save(dtoAEntidad(dto)));
+    }
 
-        if (proyecto.getUbicacion() != null && convocatoria.getUbicacion() != null
-                && proyecto.getUbicacion().equalsIgnoreCase(convocatoria.getUbicacion())) {
-            sb.append("La ubicación de tu proyecto (").append(proyecto.getUbicacion())
-              .append(") está dentro del ámbito geográfico de esta convocatoria. ");
-        }
-
-        if (convocatoria.getUbicacion() == null
-                || convocatoria.getUbicacion().isBlank()
-                || convocatoria.getUbicacion().equalsIgnoreCase("Nacional")) {
-            sb.append("Esta convocatoria es de ámbito nacional, accesible desde cualquier ubicación. ");
-        }
-
-        if (proyecto.getDescripcion() != null && convocatoria.getTitulo() != null
-                && contieneKeywords(proyecto.getDescripcion(), convocatoria.getTitulo())) {
-            sb.append("La descripción de tu proyecto contiene términos relacionados con esta convocatoria. ");
-        }
-
-        if (sb.isEmpty()) {
-            sb.append("Esta convocatoria puede ser de interés según tu perfil general. ");
-        }
-
-        sb.append("Puntuación de compatibilidad: ").append(puntuacion).append("/100.");
-        return sb.toString().trim();
+    private Convocatoria dtoAEntidad(ConvocatoriaDTO dto) {
+        return Convocatoria.builder()
+                .titulo(dto.getTitulo())
+                .tipo(dto.getTipo())
+                .sector(dto.getSector())
+                .ubicacion(dto.getUbicacion())
+                .urlOficial(dto.getUrlOficial())
+                .fuente(dto.getFuente())
+                .fechaCierre(dto.getFechaCierre())
+                .build();
     }
 }
