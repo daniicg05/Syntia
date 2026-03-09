@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -151,15 +152,21 @@ public class MotorMatchingService {
      */
     private Map<String, ConvocatoriaDTO> buscarEnBdns(List<String> keywords) {
         Map<String, ConvocatoriaDTO> resultado = new LinkedHashMap<>();
+        LocalDate hoy = LocalDate.now();
         for (String kw : keywords) {
             try {
                 List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTexto(kw, 0, RESULTADOS_POR_KEYWORD);
                 for (ConvocatoriaDTO dto : encontradas) {
-                    if (dto.getTitulo() != null && !resultado.containsKey(dto.getTitulo())) {
-                        resultado.put(dto.getTitulo(), dto);
+                    if (dto.getTitulo() == null) continue;
+                    if (resultado.containsKey(dto.getTitulo())) continue;
+                    // Descartar las que ya tienen fecha de cierre pasada (doble garantía)
+                    if (dto.getFechaCierre() != null && dto.getFechaCierre().isBefore(hoy)) {
+                        log.debug("Descartada por caducada: '{}' cierre={}", dto.getTitulo(), dto.getFechaCierre());
+                        continue;
                     }
+                    resultado.put(dto.getTitulo(), dto);
                 }
-                log.info("BDNS '{}': {} resultados ({} únicos acumulados)", kw, encontradas.size(), resultado.size());
+                log.info("BDNS '{}': {} resultados ({} vigentes acumuladas)", kw, encontradas.size(), resultado.size());
             } catch (Exception e) {
                 log.warn("Error consultando BDNS con keyword '{}': {}", kw, e.getMessage());
             }

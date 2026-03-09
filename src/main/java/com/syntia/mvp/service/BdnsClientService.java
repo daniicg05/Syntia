@@ -86,10 +86,11 @@ public class BdnsClientService {
     public List<ConvocatoriaDTO> buscarPorTexto(String keywords, int pagina, int tamano) {
         log.info("BDNS búsqueda por texto: '{}' pagina={} tamano={}", keywords, pagina, tamano);
 
+        // vigente=true → solo convocatorias con plazo abierto
         @SuppressWarnings("unchecked")
         Map<String, Object> respuesta = restClient.get()
                 .uri(BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag={pag}&tamPag={tam}" +
-                     "&descripcion={desc}&descripcionTipoBusqueda=1",
+                     "&descripcion={desc}&descripcionTipoBusqueda=1&vigente=true",
                      pagina, Math.min(tamano, 50), keywords)
                 .retrieve()
                 .body(Map.class);
@@ -152,8 +153,7 @@ public class BdnsClientService {
         String nivel1 = getString(c, "nivel1", "");
         dto.setTipo(mapearTipo(nivel1));
 
-        // Sector: la API BDNS no devuelve sector directamente, dejamos null
-        // (OpenAI lo inferirá del título al hacer matching)
+        // Sector: la API BDNS no devuelve sector directamente
         dto.setSector(null);
 
         // Ubicación: nivel2 contiene la comunidad/organismo
@@ -170,9 +170,16 @@ public class BdnsClientService {
             dto.setUrlOficial("https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/" + idBdns);
         }
 
-        // Fecha: la API devuelve fechaRecepcion (registro), no fecha de cierre
-        parsearFecha(dto, getString(c, "fechaRecepcion", null));
+        // Fecha de cierre: intentar campos reales de plazo (fechaRecepcion es la de REGISTRO, no cierre)
+        String fechaCierre = getString(c, "fechaFinSolicitud",
+                             getString(c, "fechaCierre",
+                             getString(c, "plazoSolicitudes", null)));
+        if (fechaCierre != null) {
+            parsearFecha(dto, fechaCierre);
+        }
+        // Si no hay fecha de cierre conocida, dejar null (convocatoria sin plazo definido = abierta)
 
+        log.debug("BDNS conv: titulo='{}' fechaCierre={} nivel1={}", dto.getTitulo(), dto.getFechaCierre(), nivel1);
         return dto;
     }
 
