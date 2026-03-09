@@ -182,9 +182,8 @@
                             <button th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
                                     type="button"
                                     class="btn btn-success btn-sm"
-                                    th:attr="data-bs-toggle='modal',
-                                             data-bs-target='#modalGuia' + ${rec.id},
-                                             data-titulo=${rec.titulo}">
+                                    th:data-bs-toggle="'modal'"
+                                    th:data-bs-target="${'#modalGuia' + rec.id}">
                                 📋 Ver guía de solicitud
                             </button>
 

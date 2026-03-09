@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syntia – Mi Perfil</title>
     <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        .tip-ia { background: linear-gradient(135deg,#e8f4fd,#f0f7ff); border-left: 3px solid #0d6efd; }
+        .completitud-item { font-size: .8rem; }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -12,123 +16,142 @@
 
 <div class="container py-5" style="max-width: 720px;">
 
-    <h2 class="mb-1">Mi Perfil</h2>
+    <h2 class="mb-1 fw-bold">Mi Perfil</h2>
     <p class="text-muted mb-4"
-       th:text="${tienePerfil} ? 'Actualiza tu información para mejorar las recomendaciones.' : 'Completa tu perfil para empezar a recibir recomendaciones.'">
+       th:text="${tienePerfil} ? 'Mantén tu perfil actualizado para mejorar la precisión de las recomendaciones IA.' : 'Completa tu perfil para que la IA pueda encontrar las subvenciones que mejor se adaptan a ti.'">
     </p>
 
-    <!-- Mensaje de éxito -->
+    <!-- Alerta éxito -->
     <div th:if="${exito}" class="alert alert-success alert-dismissible fade show" role="alert">
         <span th:text="${exito}"></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <div class="card shadow-sm">
+    <!-- Consejo IA -->
+    <div class="tip-ia rounded p-3 mb-4 small">
+        <strong>🤖 ¿Por qué es importante el perfil?</strong><br>
+        La IA usa tu <strong>tipo de entidad</strong>, <strong>sector</strong> y
+        <strong>descripción libre</strong> para leer el contenido oficial de cada convocatoria
+        de la BDNS y generar una guía de solicitud exacta y personalizada.
+        Un perfil completo mejora significativamente la calidad de las recomendaciones.
+    </div>
+
+    <div class="card shadow-sm border-0">
         <div class="card-body p-4">
 
             <form th:action="@{/usuario/perfil}" th:object="${perfilDTO}" method="post" novalidate>
 
-                <!-- Sector -->
-                <div class="mb-3">
-                    <label for="sector" class="form-label fw-semibold">
-                        Sector <span class="text-danger">*</span>
-                    </label>
-                    <select id="sector" th:field="*{sector}" class="form-select"
-                            th:classappend="${#fields.hasErrors('sector')} ? 'is-invalid'">
-                        <option value="">-- Selecciona un sector --</option>
-                        <option value="Tecnología">Tecnología</option>
-                        <option value="Agricultura">Agricultura</option>
-                        <option value="Industria">Industria</option>
-                        <option value="Servicios">Servicios</option>
-                        <option value="Educación">Educación</option>
-                        <option value="Salud">Salud</option>
-                        <option value="Medio ambiente">Medio ambiente</option>
-                        <option value="Cultura">Cultura</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                    <div class="invalid-feedback" th:errors="*{sector}"></div>
-                </div>
+                <div class="row g-3">
 
-                <!-- Ubicación -->
-                <div class="mb-3">
-                    <label for="ubicacion" class="form-label fw-semibold">
-                        Ubicación <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" id="ubicacion" th:field="*{ubicacion}"
-                           class="form-control"
-                           th:classappend="${#fields.hasErrors('ubicacion')} ? 'is-invalid'"
-                           placeholder="Ej: Madrid, Comunidad Valenciana, España...">
-                    <div class="invalid-feedback" th:errors="*{ubicacion}"></div>
-                </div>
-
-                <!-- Tipo de entidad -->
-                <div class="mb-3">
-                    <label for="tipoEntidad" class="form-label fw-semibold">Tipo de entidad</label>
-                    <select id="tipoEntidad" th:field="*{tipoEntidad}" class="form-select">
-                        <option value="">-- Selecciona un tipo --</option>
-                        <option value="Autónomo">Autónomo</option>
-                        <option value="Startup">Startup</option>
-                        <option value="PYME">PYME</option>
-                        <option value="Gran empresa">Gran empresa</option>
-                        <option value="Asociación">Asociación</option>
-                        <option value="Entidad pública">Entidad pública</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
-
-                <!-- Objetivos -->
-                <div class="mb-3">
-                    <label for="objetivos" class="form-label fw-semibold">Objetivos</label>
-                    <textarea id="objetivos" th:field="*{objetivos}"
-                              class="form-control"
-                              th:classappend="${#fields.hasErrors('objetivos')} ? 'is-invalid'"
-                              rows="3"
-                              placeholder="Describe brevemente los objetivos de tu proyecto o negocio..."></textarea>
-                    <div class="invalid-feedback" th:errors="*{objetivos}"></div>
-                    <div class="form-text">Máximo 500 caracteres.</div>
-                </div>
-
-                <!-- Necesidades de financiación -->
-                <div class="mb-3">
-                    <label for="necesidadesFinanciacion" class="form-label fw-semibold">
-                        Necesidades de financiación
-                    </label>
-                    <textarea id="necesidadesFinanciacion" th:field="*{necesidadesFinanciacion}"
-                              class="form-control"
-                              th:classappend="${#fields.hasErrors('necesidadesFinanciacion')} ? 'is-invalid'"
-                              rows="3"
-                              placeholder="Ej: inversión en I+D, contratación, internacionalización..."></textarea>
-                    <div class="invalid-feedback" th:errors="*{necesidadesFinanciacion}"></div>
-                    <div class="form-text">Máximo 500 caracteres.</div>
-                </div>
-
-                <!-- Descripción libre -->
-                <div class="mb-4">
-                    <label for="descripcionLibre" class="form-label fw-semibold">
-                        Descripción libre
-                    </label>
-                    <textarea id="descripcionLibre" th:field="*{descripcionLibre}"
-                              class="form-control"
-                              th:classappend="${#fields.hasErrors('descripcionLibre')} ? 'is-invalid'"
-                              rows="5"
-                              placeholder="Cuéntanos con tus propias palabras en qué consiste tu proyecto, qué problema resuelve y qué tipo de ayuda necesitas..."></textarea>
-                    <div class="invalid-feedback" th:errors="*{descripcionLibre}"></div>
-                    <div class="form-text">Máximo 2000 caracteres. Esta información ayuda al motor de recomendaciones.</div>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex gap-2">
-                        <a th:href="@{/usuario/dashboard}" class="btn btn-outline-secondary">
-                            Volver al dashboard
-                        </a>
-                        <a th:if="${tienePerfil}"
-                           th:href="@{/usuario/perfil/ver}"
-                           class="btn btn-outline-primary">
-                            Ver perfil
-                        </a>
+                    <!-- Sector -->
+                    <div class="col-md-6">
+                        <label for="sector" class="form-label fw-semibold">
+                            Sector de actividad <span class="text-danger">*</span>
+                        </label>
+                        <select id="sector" th:field="*{sector}" class="form-select"
+                                th:classappend="${#fields.hasErrors('sector')} ? 'is-invalid'">
+                            <option value="">-- Selecciona --</option>
+                            <option value="Tecnología">Tecnología</option>
+                            <option value="Agricultura">Agricultura</option>
+                            <option value="Industria">Industria</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Educación">Educación</option>
+                            <option value="Salud">Salud</option>
+                            <option value="Medio ambiente">Medio ambiente</option>
+                            <option value="Comercio">Comercio</option>
+                            <option value="Turismo">Turismo</option>
+                            <option value="I+D">I+D</option>
+                            <option value="Cultura">Cultura</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{sector}"></div>
                     </div>
-                    <button type="submit" class="btn btn-primary px-4">
-                        <span th:text="${tienePerfil} ? 'Guardar cambios' : 'Crear perfil'">Guardar</span>
+
+                    <!-- Ubicación -->
+                    <div class="col-md-6">
+                        <label for="ubicacion" class="form-label fw-semibold">
+                            Ubicación <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" id="ubicacion" th:field="*{ubicacion}"
+                               class="form-control"
+                               th:classappend="${#fields.hasErrors('ubicacion')} ? 'is-invalid'"
+                               placeholder="Ej: Madrid, Comunidad Valenciana...">
+                        <div class="invalid-feedback" th:errors="*{ubicacion}"></div>
+                    </div>
+
+                    <!-- Tipo de entidad -->
+                    <div class="col-md-6">
+                        <label for="tipoEntidad" class="form-label fw-semibold">
+                            Tipo de entidad
+                            <span class="badge bg-success fw-normal ms-1" style="font-size:.65rem;">Mejora la IA</span>
+                        </label>
+                        <select id="tipoEntidad" th:field="*{tipoEntidad}" class="form-select">
+                            <option value="">-- Selecciona --</option>
+                            <option value="Autónomo">Autónomo</option>
+                            <option value="Startup">Startup</option>
+                            <option value="PYME">PYME</option>
+                            <option value="Gran empresa">Gran empresa</option>
+                            <option value="Asociación">Asociación</option>
+                            <option value="Fundación">Fundación</option>
+                            <option value="Entidad pública">Entidad pública</option>
+                            <option value="Cooperativa">Cooperativa</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                        <div class="form-text">Determina qué convocatorias son elegibles para ti.</div>
+                    </div>
+
+                    <!-- Objetivos -->
+                    <div class="col-12">
+                        <label for="objetivos" class="form-label fw-semibold">Objetivos</label>
+                        <textarea id="objetivos" th:field="*{objetivos}"
+                                  class="form-control"
+                                  th:classappend="${#fields.hasErrors('objetivos')} ? 'is-invalid'"
+                                  rows="3"
+                                  placeholder="Ej: Digitalizar procesos, expandir a nuevos mercados, desarrollar un nuevo producto..."></textarea>
+                        <div class="invalid-feedback" th:errors="*{objetivos}"></div>
+                    </div>
+
+                    <!-- Necesidades de financiación -->
+                    <div class="col-12">
+                        <label for="necesidadesFinanciacion" class="form-label fw-semibold">
+                            Necesidades de financiación
+                        </label>
+                        <textarea id="necesidadesFinanciacion" th:field="*{necesidadesFinanciacion}"
+                                  class="form-control"
+                                  th:classappend="${#fields.hasErrors('necesidadesFinanciacion')} ? 'is-invalid'"
+                                  rows="3"
+                                  placeholder="Ej: Inversión en I+D, contratación de personal, internacionalización, maquinaria..."></textarea>
+                        <div class="invalid-feedback" th:errors="*{necesidadesFinanciacion}"></div>
+                    </div>
+
+                    <!-- Descripción libre -->
+                    <div class="col-12">
+                        <label for="descripcionLibre" class="form-label fw-semibold">
+                            Descripción libre
+                            <span class="badge bg-success fw-normal ms-1" style="font-size:.65rem;">Mejora la IA</span>
+                        </label>
+                        <textarea id="descripcionLibre" th:field="*{descripcionLibre}"
+                                  class="form-control"
+                                  th:classappend="${#fields.hasErrors('descripcionLibre')} ? 'is-invalid'"
+                                  rows="5"
+                                  placeholder="Cuéntanos con tus propias palabras en qué consiste tu actividad, qué problema resuelves, a qué clientes te diriges y qué tipo de ayuda necesitas..."></textarea>
+                        <div class="invalid-feedback" th:errors="*{descripcionLibre}"></div>
+                        <div class="form-text">
+                            Esta descripción es la más importante para la IA. Cuanto más detallada, más específica será la guía de solicitud que recibirás.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div class="d-flex gap-2">
+                        <a th:href="@{/usuario/dashboard}" class="btn btn-outline-secondary">Dashboard</a>
+                        <a th:if="${tienePerfil}" th:href="@{/usuario/perfil/ver}"
+                           class="btn btn-outline-primary">Ver perfil</a>
+                    </div>
+                    <button type="submit" class="btn btn-primary px-4"
+                            th:text="${tienePerfil} ? 'Guardar cambios' : 'Crear perfil'">
+                        Guardar
                     </button>
                 </div>
 
@@ -136,8 +159,8 @@
         </div>
     </div>
 
-    <p class="text-muted small mt-4 text-center">
-        Los campos marcados con <span class="text-danger">*</span> son obligatorios.
+    <p class="text-muted small mt-3 text-center">
+        Los campos con <span class="text-danger">*</span> son obligatorios.
     </p>
 
 </div>
@@ -147,4 +170,3 @@
 <footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
-

@@ -74,7 +74,7 @@ public class PerfilController {
             return "redirect:/usuario/perfil";
         }
 
-        model.addAttribute("perfil", perfilOpt.get());
+        model.addAttribute("perfil", perfilService.toDTO(perfilOpt.get()));
         model.addAttribute("usuario", usuario);
         return "usuario/perfil-ver";
     }

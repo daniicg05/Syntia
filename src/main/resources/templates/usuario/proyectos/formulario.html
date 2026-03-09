@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${proyectoId != null} ? 'Syntia – Editar Proyecto' : 'Syntia – Nuevo Proyecto'">
-        Syntia – Proyecto
-    </title>
+    <title th:text="${proyectoId != null} ? 'Syntia – Editar Proyecto' : 'Syntia – Nuevo Proyecto'">Syntia – Proyecto</title>
     <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        .tip-ia { background: linear-gradient(135deg,#e8f4fd,#f0f7ff); border-left: 3px solid #0d6efd; }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -24,16 +25,22 @@
         </ol>
     </nav>
 
-    <h2 class="mb-1"
-        th:text="${proyectoId != null} ? 'Editar Proyecto' : 'Nuevo Proyecto'">
-        Proyecto
-    </h2>
+    <h2 class="mb-1 fw-bold"
+        th:text="${proyectoId != null} ? 'Editar Proyecto' : 'Nuevo Proyecto'"></h2>
     <p class="text-muted mb-4">
-        Cuanta más información añadas, mejores serán las recomendaciones de subvenciones.
+        Cuanta más información añadas, más precisa será la guía de solicitud que generará la IA.
     </p>
 
+    <!-- Consejo IA -->
+    <div class="tip-ia rounded p-3 mb-4 small">
+        <strong>💡 Consejo para mejores resultados:</strong>
+        Describe el <strong>sector concreto</strong>, la <strong>ubicación</strong> y los
+        <strong>objetivos del proyecto</strong>. La IA leerá el contenido oficial de cada
+        convocatoria de la BDNS para generar una guía de solicitud específica y precisa.
+    </div>
+
     <!-- Tarjeta formulario -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm border-0">
         <div class="card-body p-4">
 
             <!-- Crear: POST /usuario/proyectos/nuevo -->
@@ -43,17 +50,14 @@
                               ? @{/usuario/proyectos/{id}/editar(id=${proyectoId})}
                               : @{/usuario/proyectos/nuevo}"
                   th:object="${proyectoDTO}"
-                  method="post"
-                  novalidate>
+                  method="post" novalidate>
 
                 <!-- Nombre -->
                 <div class="mb-3">
                     <label for="nombre" class="form-label fw-semibold">
                         Nombre del proyecto <span class="text-danger">*</span>
                     </label>
-                    <input type="text"
-                           id="nombre"
-                           th:field="*{nombre}"
+                    <input type="text" id="nombre" th:field="*{nombre}"
                            class="form-control"
                            th:classappend="${#fields.hasErrors('nombre')} ? 'is-invalid'"
                            placeholder="Ej: App de gestión agrícola, Tienda online de artesanía..."
@@ -74,53 +78,48 @@
                         <option value="Educación">Educación</option>
                         <option value="Salud">Salud</option>
                         <option value="Medio ambiente">Medio ambiente</option>
+                        <option value="Comercio">Comercio</option>
+                        <option value="Turismo">Turismo</option>
+                        <option value="I+D">I+D</option>
                         <option value="Cultura">Cultura</option>
                         <option value="Otro">Otro</option>
                     </select>
-                    <div class="form-text">
-                        El sector se usa para cruzar con convocatorias compatibles.
-                    </div>
+                    <div class="form-text">El sector se usa para cruzar con convocatorias compatibles.</div>
                 </div>
 
                 <!-- Ubicación -->
                 <div class="mb-3">
                     <label for="ubicacion" class="form-label fw-semibold">Ubicación</label>
-                    <input type="text"
-                           id="ubicacion"
-                           th:field="*{ubicacion}"
+                    <input type="text" id="ubicacion" th:field="*{ubicacion}"
                            class="form-control"
                            placeholder="Ej: Madrid, Comunidad Valenciana, Andalucía, Nacional...">
-                    <div class="form-text">
-                        Afecta al ámbito geográfico de las convocatorias recomendadas.
-                    </div>
+                    <div class="form-text">Afecta al ámbito geográfico de las convocatorias recomendadas.</div>
                 </div>
 
                 <!-- Descripción -->
                 <div class="mb-4">
-                    <label for="descripcion" class="form-label fw-semibold">Descripción del proyecto</label>
-                    <textarea id="descripcion"
-                              th:field="*{descripcion}"
+                    <label for="descripcion" class="form-label fw-semibold">
+                        Descripción del proyecto
+                        <span class="badge bg-success ms-1 fw-normal" style="font-size:.7rem;">Mejora la IA</span>
+                    </label>
+                    <textarea id="descripcion" th:field="*{descripcion}"
                               class="form-control"
                               th:classappend="${#fields.hasErrors('descripcion')} ? 'is-invalid'"
-                              rows="5"
-                              maxlength="2000"
-                              placeholder="Describe qué hace tu proyecto, a qué problema da respuesta, en qué fase está y qué tipo de financiación necesitas..."></textarea>
+                              rows="6" maxlength="2000"
+                              placeholder="Describe qué hace tu proyecto, a qué problema da respuesta, en qué fase está, qué tecnología usa y qué tipo de financiación necesitas..."></textarea>
                     <div class="invalid-feedback" th:errors="*{descripcion}"></div>
                     <div class="d-flex justify-content-between">
-                        <span class="form-text">Máximo 2000 caracteres. Esta información mejora el motor de recomendaciones con IA.</span>
-                        <span class="form-text" id="contador-desc">0 / 2000</span>
+                        <span class="form-text">Cuanto más detallada, más precisa será la guía que genera la IA.</span>
+                        <span class="form-text fw-semibold" id="contador-desc">0 / 2000</span>
                     </div>
                 </div>
 
                 <!-- Acciones -->
                 <div class="d-flex justify-content-between align-items-center">
-                    <a th:href="@{/usuario/proyectos}" class="btn btn-outline-secondary">
-                        Cancelar
-                    </a>
-                    <button type="submit" class="btn btn-primary px-4">
-                        <span th:text="${proyectoId != null} ? 'Guardar cambios' : 'Crear proyecto'">
-                            Guardar
-                        </span>
+                    <a th:href="@{/usuario/proyectos}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4"
+                            th:text="${proyectoId != null} ? 'Guardar cambios' : 'Crear proyecto'">
+                        Guardar
                     </button>
                 </div>
 
@@ -139,4 +138,3 @@
 <footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>
-

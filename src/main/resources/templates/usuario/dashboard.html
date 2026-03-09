@@ -175,12 +175,12 @@
     <section class="mb-5">
         <h4 class="mb-1">🗓 Roadmap Estratégico</h4>
         <p class="text-muted small mb-3">
-            Convocatorias con fecha de cierre próxima, ordenadas por urgencia.
+            Convocatorias activas ordenadas por urgencia. Las que tienen fecha límite aparecen primero.
         </p>
 
-        <div th:if="${#lists.isEmpty(roadmap)}" class="card shadow-sm">
+        <div th:if="${#lists.isEmpty(roadmap)}" class="card shadow-sm border-0">
             <div class="card-body text-center py-4 text-muted small">
-                No hay convocatorias con fecha de cierre disponibles.
+                No hay convocatorias en el roadmap todavía.<br>
                 Genera recomendaciones en tus proyectos para verlas aquí.
             </div>
         </div>
@@ -188,44 +188,56 @@
         <div class="list-group shadow-sm" th:if="${!#lists.isEmpty(roadmap)}">
             <div th:each="item : ${roadmap}"
                  class="list-group-item list-group-item-action p-3"
-                 th:classappend="${item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(15))} ? 'roadmap-urgente' :
-                                 (${item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'roadmap-proximo' : 'roadmap-normal')">
+                 th:classappend="${item.recomendacion().fechaCierre != null and item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(15))} ? 'roadmap-urgente' :
+                                 (${item.recomendacion().fechaCierre != null and item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'roadmap-proximo' : 'roadmap-normal')">
 
                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                    <div>
-                        <div class="fw-semibold" th:text="${item.recomendacion().titulo}"></div>
-                        <div class="small text-muted">
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small" th:text="${item.recomendacion().titulo}"></div>
+                        <div class="text-muted" style="font-size:.78rem;">
                             Proyecto:
-                            <a th:href="@{/usuario/proyectos/{id}(id=${item.proyecto().id})}"
-                               th:text="${item.proyecto().nombre}"></a>
+                            <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${item.proyecto().id})}"
+                               th:text="${item.proyecto().nombre}" class="text-decoration-none"></a>
                         </div>
-                        <div class="mt-1">
-                            <span class="badge bg-primary me-1" th:if="${item.recomendacion().tipo}"
+                        <div class="mt-1 d-flex flex-wrap gap-1">
+                            <span class="badge bg-primary" th:if="${item.recomendacion().tipo}"
                                   th:text="${item.recomendacion().tipo}"></span>
                             <span class="badge bg-secondary" th:if="${item.recomendacion().sector}"
                                   th:text="${item.recomendacion().sector}"></span>
                         </div>
                     </div>
-                    <div class="text-end">
-                        <!-- Fecha de cierre -->
-                        <div class="small fw-bold"
+                    <div class="text-end flex-shrink-0">
+                        <!-- Con fecha de cierre -->
+                        <div th:if="${item.recomendacion().fechaCierre != null}"
+                             class="small fw-bold"
                              th:classappend="${item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(15))} ? 'text-danger' :
                                              (${item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-warning' : 'text-muted')">
-                            Cierra:
+                            ⏰ Cierra:
                             <span th:text="${#temporals.format(item.recomendacion().fechaCierre, 'dd/MM/yyyy')}"></span>
+                        </div>
+                        <!-- Sin fecha de cierre -->
+                        <div th:if="${item.recomendacion().fechaCierre == null}"
+                             class="small text-success fw-semibold">
+                            ✅ Convocatoria abierta
                         </div>
                         <!-- Puntuación -->
                         <div class="small mt-1"
                              th:classappend="${item.recomendacion().puntuacion >= 70} ? 'puntuacion-alta' : 'puntuacion-media'"
                              th:text="'Compatibilidad: ' + ${item.recomendacion().puntuacion} + '/100'">
                         </div>
-                        <!-- Enlace oficial -->
-                        <a th:if="${item.recomendacion().urlOficial}"
-                           th:href="${item.recomendacion().urlOficial}"
-                           target="_blank" rel="noopener noreferrer"
-                           class="btn btn-outline-primary btn-sm mt-1">
-                            Ver convocatoria ↗
-                        </a>
+                        <!-- Botones -->
+                        <div class="d-flex gap-1 mt-1 justify-content-end">
+                            <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${item.proyecto().id})}"
+                               class="btn btn-outline-secondary btn-sm" style="font-size:.72rem;">
+                                Ver guía
+                            </a>
+                            <a th:if="${item.recomendacion().urlOficial}"
+                               th:href="${item.recomendacion().urlOficial}"
+                               target="_blank" rel="noopener noreferrer"
+                               class="btn btn-outline-primary btn-sm" style="font-size:.72rem;">
+                                Oficial ↗
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

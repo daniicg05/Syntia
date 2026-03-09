@@ -58,30 +58,39 @@ public class DashboardService {
     }
 
     /**
-     * Construye el roadmap estratégico: todas las recomendaciones de todos los proyectos
-     * del usuario que tienen fecha de cierre, ordenadas por fecha ascendente (más próximas primero).
-     * Solo incluye convocatorias con fecha de cierre igual o posterior a hoy.
-     *
-     * @param usuarioId ID del usuario autenticado
-     * @return lista de RoadmapItemDTO ordenada por fecha de cierre
+     * Construye el roadmap estratégico.
+     * - Con fecha de cierre >= hoy: ordenadas por urgencia (más próximas primero)
+     * - Sin fecha de cierre: al final, ordenadas por puntuación desc
      */
     public List<RoadmapItem> obtenerRoadmap(Long usuarioId) {
         List<Proyecto> proyectos = proyectoService.obtenerProyectos(usuarioId);
-        List<RoadmapItem> roadmap = new ArrayList<>();
+        List<RoadmapItem> conFecha = new ArrayList<>();
+        List<RoadmapItem> sinFecha = new ArrayList<>();
         LocalDate hoy = LocalDate.now();
 
         for (Proyecto proyecto : proyectos) {
             List<RecomendacionDTO> recs = recomendacionService.obtenerPorProyecto(proyecto.getId());
             for (RecomendacionDTO rec : recs) {
                 if (rec.getFechaCierre() != null && !rec.getFechaCierre().isBefore(hoy)) {
-                    roadmap.add(new RoadmapItem(proyecto, rec));
+                    conFecha.add(new RoadmapItem(proyecto, rec));
+                } else if (rec.getFechaCierre() == null) {
+                    sinFecha.add(new RoadmapItem(proyecto, rec));
                 }
+                // fechas pasadas: se ignoran
             }
         }
 
-        // Ordenar por fecha de cierre ascendente (más urgente primero)
-        roadmap.sort(Comparator.comparing(item -> item.recomendacion().getFechaCierre()));
-        return roadmap;
+        // Con fecha: ordenar por urgencia (más próxima primero)
+        conFecha.sort(Comparator.comparing(item -> item.recomendacion().getFechaCierre()));
+        // Sin fecha: ordenar por puntuación descendente
+        sinFecha.sort((a, b) -> Integer.compare(
+                b.recomendacion().getPuntuacion(),
+                a.recomendacion().getPuntuacion()));
+
+        // Unir: primero con fecha, luego sin fecha (máx 10 sin fecha para no saturar)
+        List<RoadmapItem> resultado = new ArrayList<>(conFecha);
+        sinFecha.stream().limit(10).forEach(resultado::add);
+        return resultado;
     }
 
     /**
