@@ -3,11 +3,14 @@
 ## 1. Arquitectura
 
 - Modelo cliente-servidor con arquitectura monolítica modular (Spring Boot).
-- **Backend:** Spring Boot 3.5.x, gestión de usuarios, integración con BDNS, motor de priorización.
-- **Frontend:** Thymeleaf (vistas server-side) + Bootstrap 5 (responsive), dashboard y panel administrativo.
+- **Backend:** Spring Boot 3.5.x, gestión de usuarios, integración con BDNS, motor de matching con IA (OpenAI gpt-4.1).
+- **Frontend:** Thymeleaf (vistas server-side) + Bootstrap 5 (responsive) + JavaScript vanilla (SSE streaming), dashboard y panel administrativo.
 - **API REST:** Endpoints REST protegidos con JWT para integraciones futuras y consumo desde JavaScript.
+- **Streaming:** Server-Sent Events (SSE) con `SseEmitter` para feedback en tiempo real durante el análisis con IA. Ejecución asíncrona con `CompletableFuture` + `TransactionTemplate`.
+- **Motor IA:** OpenAI Chat Completions API (gpt-4.1) para generación de keywords de búsqueda y evaluación semántica de convocatorias. Fallback automático a motor rule-based si la API no está disponible.
+- **Fuente de datos:** API pública BDNS (Base de Datos Nacional de Subvenciones, ~615.000 convocatorias) con búsqueda directa por keywords.
 - **Base de datos:** PostgreSQL 17.2, almacenamiento de usuarios, perfiles, recomendaciones y metadatos de convocatorias.
-- **Seguridad:** Enfoque híbrido — formulario de login con sesión para vistas Thymeleaf + JWT para endpoints REST/API.
+- **Seguridad:** Enfoque híbrido — formulario de login con sesión para vistas Thymeleaf + JWT para endpoints REST/API. CSRF deshabilitado en ambas cadenas.
 
 ## 2. Tecnologías Seleccionadas
 
@@ -41,6 +44,7 @@
 | JWT API | `io.jsonwebtoken` | `jjwt-api` (0.12.6) | ✅ Incluida |
 | JWT Impl | `io.jsonwebtoken` | `jjwt-impl` (0.12.6) | ✅ Incluida |
 | JWT Jackson | `io.jsonwebtoken` | `jjwt-jackson` (0.12.6) | ✅ Incluida |
+| Spring Dotenv | `me.paulschwarz` | `spring-dotenv` (4.0.0) | ✅ Incluida — carga automática de `.env` como variables de entorno |
 
 ## 3. Estándares
 - **Seguridad:** autenticación JWT para API REST, sesiones para vistas Thymeleaf, cifrado de datos con BCrypt, HTTPS, política CORS.
@@ -106,62 +110,88 @@ Credenciales: true (permite envío de cookies/tokens)
 ### 5.5. Cifrado y Protección
 - Contraseñas cifradas con **BCrypt** (`BCryptPasswordEncoder`).
 - Comunicación segura mediante **HTTPS** en producción.
-- CSRF deshabilitado para endpoints REST (API stateless), habilitado para formularios Thymeleaf según necesidad.
-- Prevención de vulnerabilidades comunes: XSS (escape de Thymeleaf), inyección SQL (JPA parametrizado), CSRF.
+- CSRF deshabilitado en ambas cadenas de seguridad (`csrf.disable()` en `SecurityConfig.java`): tanto para la API REST (stateless) como para los formularios Thymeleaf (decisión de simplificación del MVP).
+- Prevención de vulnerabilidades comunes: XSS (escape de Thymeleaf), inyección SQL (JPA parametrizado).
 
 ## 6. Estructura de Paquetes
+
+> **Actualizado a 2026-03-10 (v3.0.0)** — Refleja el estado real del código implementado.
 
 ```
 com.syntia.mvp
 ├── SyntiaMvpApplication.java          # Clase principal
 ├── config/
-│   ├── SecurityConfig.java            # Configuración de Spring Security (cadena de filtros)
-│   ├── CorsConfig.java                # Configuración CORS
-│   ├── WebExceptionHandler.java       # Manejo de excepciones para vistas Thymeleaf
-│   └── GlobalExceptionHandler.java    # Manejo de excepciones genérico
+│   ├── SecurityConfig.java            # Dual filter chain: JWT (/api/**) + formulario (web)
+│   ├── CorsConfig.java                # Configuración CORS (allowedOriginPatterns)
+│   ├── ConvocatoriaInitializer.java   # Inicializador de datos de convocatorias
+│   ├── GlobalExceptionHandler.java    # @RestControllerAdvice para /api/**
+│   ├── RestExceptionHandler.java      # Manejo de excepciones REST
+│   └── WebExceptionHandler.java       # Manejo de excepciones para vistas Thymeleaf
 ├── security/
-│   ├── JwtService.java                # Generación y validación de tokens JWT
-│   └── JwtAuthenticationFilter.java   # Filtro de autenticación JWT
+│   ├── JwtService.java                # Generación, validación y extracción de claims JWT
+│   └── JwtAuthenticationFilter.java   # Filtro OncePerRequestFilter para JWT
 ├── controller/
-│   ├── AuthController.java            # Login, logout, redirección por rol
-│   ├── CustomErrorController.java     # Manejo de errores HTTP
-│   ├── UsuarioController.java         # (pendiente) CRUD de usuarios
-│   └── api/                           # (pendiente) Controladores REST
+│   ├── AuthController.java            # Login, registro, dashboard, redirección por rol
+│   ├── PerfilController.java          # GET/POST /usuario/perfil + vista solo lectura
+│   ├── ProyectoController.java        # CRUD /usuario/proyectos
+│   ├── RecomendacionController.java   # GET/POST recomendaciones + GET SSE streaming
+│   ├── AdminController.java           # CRUD /admin/usuarios y /admin/convocatorias
+│   └── CustomErrorController.java     # Páginas de error personalizadas (403, 404, 409, 500)
+├── controller/api/
+│   ├── AuthRestController.java        # POST /api/auth/login → JWT
+│   ├── PerfilRestController.java      # GET/PUT /api/usuario/perfil
+│   ├── ProyectoRestController.java    # CRUD /api/usuario/proyectos
+│   └── RecomendacionRestController.java # GET + POST /generar
 ├── model/
-│   ├── Usuario.java                   # Entidad JPA
-│   ├── Rol.java                       # Enum: ADMIN, USUARIO
-│   ├── Perfil.java                    # Entidad JPA
-│   ├── Proyecto.java                  # Entidad JPA
-│   ├── Convocatoria.java              # Entidad JPA
-│   ├── Recomendacion.java             # Entidad JPA
-│   └── ErrorResponse.java             # DTO para respuestas de error
+│   ├── Usuario.java                   # @Entity: email, passwordHash, rol, creadoEn
+│   ├── Rol.java                       # enum: ADMIN, USUARIO
+│   ├── Perfil.java                    # @Entity: @OneToOne con Usuario
+│   ├── Proyecto.java                  # @Entity: @ManyToOne con Usuario
+│   ├── Convocatoria.java              # @Entity: titulo, tipo, sector, idBdns, numeroConvocatoria, fechaCierre
+│   ├── Recomendacion.java             # @Entity: puntuacion, explicacion, guia (TEXT), usadaIa (boolean)
+│   └── ErrorResponse.java            # DTO para respuestas de error REST
+├── model/dto/
+│   ├── RegistroDTO.java               # Registro con confirmación de contraseña
+│   ├── PerfilDTO.java                 # @NotBlank, @Size
+│   ├── ProyectoDTO.java              # @NotBlank, @Size
+│   ├── RecomendacionDTO.java         # Desnormaliza convocatoria para la vista
+│   ├── ConvocatoriaDTO.java          # @NotBlank, @Size + idBdns, numeroConvocatoria
+│   ├── LoginRequestDTO.java          # @Email, @NotBlank
+│   └── LoginResponseDTO.java         # token + email + rol + expiresIn
 ├── repository/
-│   ├── UsuarioRepository.java         # (pendiente) JPA Repository
-│   ├── PerfilRepository.java          # (pendiente) JPA Repository
-│   ├── ProyectoRepository.java        # (pendiente) JPA Repository
-│   ├── ConvocatoriaRepository.java    # (pendiente) JPA Repository
-│   └── RecomendacionRepository.java   # (pendiente) JPA Repository
+│   ├── UsuarioRepository.java         # findByEmail, existsByEmail
+│   ├── PerfilRepository.java          # findByUsuarioId
+│   ├── ProyectoRepository.java        # findByUsuarioId, countAll()
+│   ├── ConvocatoriaRepository.java    # filtrar() JPQL, findByTituloIgnoreCaseAndFuente, sectores/tipos distintos
+│   └── RecomendacionRepository.java   # findByProyectoId, deleteByProyectoId, countAll(), filtrar() JPQL
 └── service/
-    ├── CustomUserDetailsService.java  # Implementación de UserDetailsService
-    ├── UsuarioService.java            # (pendiente) Lógica de negocio de usuarios
-    ├── PerfilService.java             # (pendiente) Lógica de negocio de perfiles
-    ├── ProyectoService.java           # (pendiente) Lógica de negocio de proyectos
-    └── MotorMatchingService.java      # (pendiente) Motor de interpretación y matching
+    ├── CustomUserDetailsService.java  # Carga por email para Spring Security
+    ├── UsuarioService.java            # registrar, buscar, obtenerTodos, eliminar, cambiarRol
+    ├── PerfilService.java             # tienePerfil, obtenerPerfil, crear, actualizar, toDTO
+    ├── ProyectoService.java           # CRUD + verificarPropiedad + toDTO
+    ├── MotorMatchingService.java      # Orquestador: keywords → BDNS → OpenAI → persistencia + SSE streaming
+    ├── OpenAiClient.java              # Cliente HTTP RestClient para OpenAI Chat Completions API
+    ├── OpenAiMatchingService.java     # System prompts, construcción de prompts, parseo JSON
+    ├── RecomendacionService.java      # obtenerPorProyecto, contarPorProyecto, filtrar, toDTO
+    ├── ConvocatoriaService.java       # CRUD completo + toDTO + importarDesdeBdns()
+    ├── BdnsClientService.java         # Cliente API pública BDNS (búsqueda, detalle, SSL permisivo)
+    └── DashboardService.java          # topRecomendaciones, roadmap, contarTotal, RoadmapItem record
 ```
 
 ## 7. Configuración de `application.properties`
 
+> **Actualizado a v3.0.0** — Refleja los valores reales del archivo actual.
+
 ```properties
-# Nombre de la aplicación
 spring.application.name=SyntiaMVP
 
 # Servidor
 server.port=8080
 
 # Base de datos PostgreSQL
-spring.datasource.url=jdbc:postgresql://localhost:5432/syntia_db
-spring.datasource.username=syntia
-spring.datasource.password=syntia
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/syntia_db}
+spring.datasource.username=${DB_USER:syntia}
+spring.datasource.password=${DB_PASSWORD:syntia}
 spring.datasource.driver-class-name=org.postgresql.Driver
 
 # JPA / Hibernate
@@ -176,25 +206,23 @@ spring.thymeleaf.suffix=.html
 spring.thymeleaf.cache=false
 
 # JWT
-jwt.secret=TU_CLAVE_SECRETA_BASE64_AQUI
-jwt.expiration=86400000
+jwt.secret=${JWT_SECRET:S3cr3tK3yP4r4Synti4Mv9Pl4t4f0rm4D3R3c0m3nd4c10n3sJWT2026}
+jwt.expiration=${JWT_EXPIRATION:86400000}
 
 # Logging
 logging.level.org.springframework.security=DEBUG
 logging.level.com.syntia.mvp=DEBUG
+
+# OpenAI - Motor de matching
+openai.api-key=${OPENAI_API_KEY:}
+openai.model=gpt-4.1
+openai.max-tokens=350
+openai.temperature=0.1
 ```
 
+> **Nota:** Si `openai.api-key` está vacío, el motor de matching usa automáticamente el algoritmo rule-based como fallback.
+
 ## 8. Base de Datos
-
-| Parámetro | Valor |
-|-----------|-------|
-| Motor | PostgreSQL 17.2 |
-| Puerto | `5432` |
-| Nombre de la BD | `syntia_db` |
-| Usuario | `syntia` |
-| Contraseña | `syntia` |
-
-### Script de inicialización
 
 ```sql
 -- Crear usuario y base de datos
@@ -202,4 +230,3 @@ CREATE USER syntia WITH PASSWORD 'syntia';
 CREATE DATABASE syntia_db OWNER syntia;
 GRANT ALL PRIVILEGES ON DATABASE syntia_db TO syntia;
 ```
-

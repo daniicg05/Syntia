@@ -8,6 +8,32 @@ Formato de cada entrada:
 
 ---
 
+## [3.0.0] – 2026-03-10
+
+### SSE Streaming + Optimización de Tokens + Informe Arquitectónico
+
+#### Cambios arquitectónicos
+Se implementa Server-Sent Events (SSE) para mostrar resultados de IA progresivamente en tiempo real. El análisis se ejecuta en un hilo separado (CompletableFuture) para no bloquear Tomcat. Se reduce el consumo de tokens y el tiempo de respuesta con constantes optimizadas.
+
+#### Nuevos archivos creados
+- `static/javascript/recomendaciones-stream.js` — Cliente SSE con EventSource: consume eventos progresivos (estado, keywords, búsqueda, progreso, resultado, completado, error). Renderiza tarjetas de recomendación en tiempo real con animación de aparición.
+- `docs/08-informe-arquitectura-ia-streaming.md` — Informe completo de 5 fases: auditoría documental, análisis global, diseño SSE, optimización de tokens y propuesta final con roadmap.
+
+#### Archivos modificados
+- `MotorMatchingService.java` — Nuevo método `generarRecomendacionesStream(Proyecto, SseEmitter)` que emite eventos SSE durante el análisis. Usa `TransactionTemplate` para gestión transaccional programática en hilo async. Constantes optimizadas: `UMBRAL_RECOMENDACION=20` (antes 10), `RESULTADOS_POR_KEYWORD=15` (antes 25), `MAX_CANDIDATAS_IA=15` (antes 30). Inyectado `ObjectMapper` para serialización JSON de eventos SSE.
+- `RecomendacionController.java` — Nuevo endpoint `GET /generar-stream` con `SseEmitter` (produces=text/event-stream, timeout=180s). El análisis se ejecuta en `CompletableFuture.runAsync()` para liberar el hilo Tomcat. Endpoint POST síncrono mantenido como fallback.
+- `recomendaciones.html` — Botón "Analizar con IA" ahora lanza SSE en lugar de POST síncrono. Panel de progreso con spinner, barra animada, detalle de evaluación y contador de resultados encontrados. Contenedor `#resultadosStream` para tarjetas en tiempo real. `<noscript>` con formulario POST como fallback. Referencia a `recomendaciones-stream.js`.
+- `application.properties` — `openai.max-tokens` reducido de 800 a 350 (respuesta JSON real ~200-350 tokens).
+
+#### Impacto de rendimiento
+- **Tokens por análisis:** ~75.000 → ~25.000 (~67% reducción)
+- **Tiempo de análisis:** ~90-120s → ~30-45s (~60% reducción)
+- **UX:** De "pantalla blanca sin feedback" a resultados apareciendo uno a uno en tiempo real
+
+**Autor(es):** Daniel (Arquitectura SSE + Optimización IA)
+
+---
+
 ## [2.3.0] – 2026-03-09
 
 ### Mejora de Prompts IA + Optimizaciones de Velocidad

@@ -79,9 +79,9 @@ spring.application.name=SyntiaMVP
 server.port=8080
 
 # PostgreSQL
-spring.datasource.url=jdbc:postgresql://localhost:5432/syntia_db
-spring.datasource.username=syntia
-spring.datasource.password=syntia
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/syntia_db}
+spring.datasource.username=${DB_USER:syntia}
+spring.datasource.password=${DB_PASSWORD:syntia}
 spring.datasource.driver-class-name=org.postgresql.Driver
 
 # JPA / Hibernate
@@ -96,13 +96,21 @@ spring.thymeleaf.suffix=.html
 spring.thymeleaf.cache=false
 
 # JWT
-jwt.secret=TU_CLAVE_SECRETA_BASE64_AQUI
-jwt.expiration=86400000
+jwt.secret=${JWT_SECRET:S3cr3tK3yP4r4Synti4Mv9Pl4t4f0rm4D3R3c0m3nd4c10n3sJWT2026}
+jwt.expiration=${JWT_EXPIRATION:86400000}
 
 # Logging
 logging.level.org.springframework.security=DEBUG
 logging.level.com.syntia.mvp=DEBUG
+
+# OpenAI - Motor de matching
+openai.api-key=${OPENAI_API_KEY:}
+openai.model=gpt-4.1
+openai.max-tokens=350
+openai.temperature=0.1
 ```
+
+> **Nota:** Si `openai.api-key` está vacío, el motor de matching usa automáticamente el algoritmo rule-based como fallback. La variable se puede definir en un archivo `.env` en la raíz del proyecto (cargado automáticamente por `spring-dotenv`).
 
 ### 5.4. Ejecución del Proyecto
 
@@ -122,7 +130,7 @@ Todas las dependencias necesarias están incluidas. Ver tabla completa en `03-es
 
 ## 6. Estructura de Paquetes del Proyecto
 
-Estado actual implementado (fases 1–6 completas):
+Estado actual implementado (v3.0.0 — fases 1–7 completas + SSE streaming):
 
 ```
 com.syntia.mvp
@@ -130,6 +138,7 @@ com.syntia.mvp
 ├── config/
 │   ├── SecurityConfig.java           ✅ Dual filter chain: JWT (/api/**) + formulario (web)
 │   ├── CorsConfig.java               ✅ allowedOriginPatterns para dev; ajustar en prod
+│   ├── ConvocatoriaInitializer.java   ✅ Inicializador de datos de convocatorias
 │   ├── GlobalExceptionHandler.java   ✅ @RestControllerAdvice para /api/**
 │   ├── RestExceptionHandler.java     ✅ Limpiado (sin código muerto)
 │   └── WebExceptionHandler.java      ✅ Manejo de errores para vistas MVC
@@ -138,9 +147,9 @@ com.syntia.mvp
 │   └── JwtAuthenticationFilter.java  ✅ Filtro OncePerRequestFilter
 ├── controller/
 │   ├── AuthController.java           ✅ Login, registro, dashboard usuario/admin
-│   ├── PerfilController.java         ✅ GET/POST /usuario/perfil
+│   ├── PerfilController.java         ✅ GET/POST /usuario/perfil + vista solo lectura
 │   ├── ProyectoController.java       ✅ CRUD /usuario/proyectos
-│   ├── RecomendacionController.java  ✅ GET/POST /usuario/proyectos/{id}/recomendaciones
+│   ├── RecomendacionController.java  ✅ GET/POST recomendaciones + GET SSE streaming (/generar-stream)
 │   ├── AdminController.java          ✅ CRUD /admin/usuarios y /admin/convocatorias
 │   └── CustomErrorController.java    ✅ Páginas de error personalizadas
 ├── controller/api/
@@ -153,32 +162,34 @@ com.syntia.mvp
 │   ├── Rol.java                      ✅ enum: ADMIN, USUARIO
 │   ├── Perfil.java                   ✅ @OneToOne con Usuario
 │   ├── Proyecto.java                 ✅ @ManyToOne con Usuario
-│   ├── Convocatoria.java             ✅ Catálogo global de convocatorias
-│   ├── Recomendacion.java            ✅ Proyecto + Convocatoria + puntuacion
+│   ├── Convocatoria.java             ✅ Catálogo global: titulo, tipo, sector, idBdns, numeroConvocatoria, fechaCierre
+│   ├── Recomendacion.java            ✅ Proyecto + Convocatoria + puntuacion + guia (TEXT) + usadaIa (boolean)
 │   └── ErrorResponse.java            ✅ DTO para errores REST
 ├── model/dto/
 │   ├── RegistroDTO.java              ✅ Registro con confirmación de contraseña
 │   ├── PerfilDTO.java                ✅ @NotBlank, @Size
 │   ├── ProyectoDTO.java              ✅ @NotBlank, @Size
-│   ├── RecomendacionDTO.java         ✅ Aplana relación LAZY para vistas
-│   ├── ConvocatoriaDTO.java          ✅ @NotBlank, @Size (getters/setters explícitos)
+│   ├── RecomendacionDTO.java         ✅ Aplana relación LAZY para vistas + campo guia
+│   ├── ConvocatoriaDTO.java          ✅ @NotBlank, @Size + idBdns, numeroConvocatoria
 │   ├── LoginRequestDTO.java          ✅ @Email, @NotBlank
 │   └── LoginResponseDTO.java         ✅ token + email + rol + expiresIn
 ├── repository/
 │   ├── UsuarioRepository.java        ✅ findByEmail, existsByEmail
 │   ├── PerfilRepository.java         ✅ findByUsuarioId
-    ├── ProyectoRepository.java       ✅ findByUsuarioId + countAll()
-    ├── ConvocatoriaRepository.java   ✅ filtrar() JPQL, existsByTituloAndFuente, sectores/tipos distintos
-    └── RecomendacionRepository.java  ✅ findByProyectoId, deleteByProyectoId, countByProyectoId, countAll(), filtrar() JPQL
+│   ├── ProyectoRepository.java       ✅ findByUsuarioId + countAll()
+│   ├── ConvocatoriaRepository.java   ✅ filtrar() JPQL, findByTituloIgnoreCaseAndFuente, sectores/tipos distintos
+│   └── RecomendacionRepository.java  ✅ findByProyectoId, deleteByProyectoId, countByProyectoId, countAll(), filtrar() JPQL
 └── service/
     ├── CustomUserDetailsService.java  ✅ Carga por email para Spring Security
     ├── UsuarioService.java            ✅ registrar, buscar, obtenerTodos, eliminar, cambiarRol
     ├── PerfilService.java             ✅ tienePerfil, obtenerPerfil, crear, actualizar, toDTO
     ├── ProyectoService.java           ✅ CRUD + verificarPropiedad + toDTO
-    ├── MotorMatchingService.java      ✅ Scoring rule-based (sector, ubicación, nacional, keywords)
-    ├── RecomendacionService.java      ✅ obtenerPorProyecto, contarPorProyecto
+    ├── MotorMatchingService.java      ✅ Orquestador + SSE streaming (generarRecomendacionesStream)
+    ├── OpenAiClient.java              ✅ Cliente HTTP RestClient para OpenAI Chat Completions API
+    ├── OpenAiMatchingService.java     ✅ System prompts, construcción de prompts, parseo JSON
+    ├── RecomendacionService.java      ✅ obtenerPorProyecto, contarPorProyecto, filtrar, toDTO
     ├── ConvocatoriaService.java       ✅ CRUD completo + toDTO + importarDesdeBdns()
-    ├── BdnsClientService.java         ✅ Cliente API pública BDNS + modo mock (bdns.mock=true)
+    ├── BdnsClientService.java         ✅ Cliente API pública BDNS (búsqueda, detalle, SSL permisivo)
     └── DashboardService.java          ✅ topRecomendaciones, roadmap, contarTotal, RoadmapItem record
 ```
 
@@ -186,9 +197,8 @@ com.syntia.mvp
 
 ```
 src/main/resources/
-├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, OpenAI, BDNS
+├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, OpenAI (max-tokens=350)
 ├── application-prod.properties       ✅ Perfil producción — todas las props por variable de entorno
-├── data-test.sql                     ✅ 2 usuarios, 1 perfil, 8 convocatorias, 1 proyecto
 ├── static/
 │   ├── bootstrap/                    ✅ Bootstrap 5 CSS
 │   ├── bootsprap/                    ✅ Bootstrap 5 JS (nombre con typo, no renombrar)
@@ -196,7 +206,8 @@ src/main/resources/
 │       ├── registro.js               ✅ Validación contraseñas + email frontend
 │       ├── perfil.js                 ✅ Validaciones formulario perfil
 │       ├── proyecto.js               ✅ Validaciones + contador caracteres
-│       └── dashboard.js              ✅ Contador días restantes en roadmap
+│       ├── dashboard.js              ✅ Contador días restantes en roadmap
+│       └── recomendaciones-stream.js ✅ Cliente SSE con EventSource para streaming de recomendaciones
 └── templates/
     ├── login.html
     ├── registro.html
@@ -215,7 +226,7 @@ src/main/resources/
     │       ├── lista.html
     │       ├── formulario.html       ✅ Crear y editar (vista unificada)
     │       ├── detalle.html
-    │       └── recomendaciones.html  ✅ Filtros BD, puntuación, badges IA/reglas, aviso legal
+    │       └── recomendaciones.html  ✅ SSE streaming + filtros BD, puntuación, badges IA/reglas, guía modal, aviso legal
     └── admin/
         ├── dashboard.html            ✅ Métricas del sistema (countAll directo, sin N+1)
         ├── usuarios/
@@ -262,7 +273,28 @@ Cabecera requerida: `Authorization: Bearer <token>`
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | `GET` | `/api/usuario/proyectos/{id}/recomendaciones` | JWT | Ver recomendaciones del proyecto |
-| `POST` | `/api/usuario/proyectos/{id}/recomendaciones/generar` | JWT | Disparar motor de matching |
+| `POST` | `/api/usuario/proyectos/{id}/recomendaciones/generar` | JWT | Disparar motor de matching (síncrono) |
+
+### Recomendaciones — Streaming SSE (vistas Thymeleaf)
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| `GET` | `/usuario/proyectos/{id}/recomendaciones/generar-stream` | Sesión | SSE streaming — feedback en tiempo real |
+
+**Content-Type:** `text/event-stream`  
+**Timeout:** 180 segundos (3 minutos)
+
+**Eventos SSE emitidos:**
+
+| Evento | Datos | Descripción |
+|--------|-------|-------------|
+| `estado` | `"texto de estado"` | Mensajes de progreso (buscando, evaluando...) |
+| `keywords` | `{total, keywords[]}` | Keywords generadas por IA |
+| `busqueda` | `{candidatas}` | Número de candidatas encontradas en BDNS |
+| `progreso` | `{actual, total, titulo}` | Progreso de evaluación IA (barra) |
+| `resultado` | `{titulo, puntuacion, explicacion, tipo, sector, ...}` | Recomendación encontrada (tarjeta en tiempo real) |
+| `completado` | `{totalRecomendaciones, totalEvaluadas, descartadas, errores}` | Resumen final |
+| `error` | `"mensaje de error"` | Si ocurre un error |
 
 ### Códigos de respuesta estándar
 
@@ -332,10 +364,8 @@ java -jar target/syntia-mvp-*.jar
 ### 8.5 Base de datos en producción
 
 - **Schema:** Spring Boot aplica `ddl-auto=validate` en prod, por lo que el schema debe crearse manualmente o con una herramienta de migración (recomendado: Flyway).
-- **Inicialización inicial:** Ejecuta el script `src/main/resources/data-test.sql` solo en entornos de staging/demo, nunca en producción real.
-- **Credenciales por defecto del script:**
-  - Admin: `admin@syntia.com` / `admin123`
-  - Usuario: `usuario@syntia.com` / `user123`
+- **Inicialización inicial:** La aplicación obtiene convocatorias directamente de la API BDNS en tiempo real. No se requieren datos de prueba precargados.
+- **Primer acceso:** Registra un usuario administrador manualmente en la BD o mediante el formulario `/registro` y luego cambia su rol a `ADMIN` via SQL.
 
 ### 8.6 HTTPS y proxy inverso (nginx)
 
@@ -356,6 +386,18 @@ server {
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto https;
     }
+
+    # SSE streaming — CRÍTICO para que el análisis IA funcione correctamente
+    location /usuario/proyectos/ {
+        proxy_pass         http://localhost:8080;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+        proxy_set_header   X-Accel-Buffering no;   # Deshabilitar buffering para SSE
+        proxy_buffering    off;                      # Sin buffer de proxy
+        proxy_read_timeout 180s;                     # 3 minutos para análisis largo
+    }
 }
 server {
     listen 80;
@@ -375,7 +417,10 @@ Obtener certificado: `certbot --nginx -d tudominio.com`
 - [ ] `spring.jpa.show-sql=false` (incluido en application-prod.properties)
 - [ ] HTTPS activo con certificado válido
 - [ ] CORS configurado con el dominio de producción real en `CorsConfig.java`
-- [ ] `bdns.mock=false` si se quiere usar la API real de BDNS
+- [ ] `OPENAI_API_KEY` configurada si se quiere usar IA (si no, fallback rule-based)
+- [ ] nginx configurado con `X-Accel-Buffering: no` para rutas SSE
+- [ ] `proxy_read_timeout 180s` en nginx para análisis largos
 - [ ] Prueba de login con usuario admin tras el despliegue
+- [ ] Prueba de análisis IA con un proyecto de ejemplo
 
 

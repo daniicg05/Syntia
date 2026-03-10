@@ -48,6 +48,9 @@ Planificar y organizar el desarrollo del MVP de Syntia asegurando una ejecución
 | Persistencia | Spring Data JPA + Hibernate |
 | Motor de plantillas | Thymeleaf + Thymeleaf Extras Security 6 |
 | Frontend | HTML5, CSS3, JavaScript, Bootstrap 5 |
+| Motor IA | OpenAI Chat Completions API (gpt-4.1) + fallback rule-based |
+| Streaming | Server-Sent Events (SSE) con SseEmitter + CompletableFuture |
+| Fuente de datos | API pública BDNS (Base de Datos Nacional de Subvenciones) |
 | Base de datos | PostgreSQL 17.2 |
 | Validación | Spring Boot Starter Validation (Bean Validation) |
 | Utilidades | Lombok |

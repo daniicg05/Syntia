@@ -34,12 +34,10 @@ cd Syntia
 http://localhost:8080
 ```
 
-**Credenciales de prueba** (tras ejecutar `data-test.sql`):
-
-| Rol | Email | Contraseña |
-|-----|-------|-----------|
-| Admin | `admin@syntia.com` | `admin123` |
-| Usuario | `usuario@syntia.com` | `user123` |
+**Para empezar:** Regístrate en `/registro` y crea tu primer proyecto. Si necesitas un usuario administrador, cambia el rol desde la BD:
+```sql
+UPDATE usuarios SET rol = 'ADMIN' WHERE email = 'tu@email.com';
+```
 
 ---
 
@@ -58,7 +56,7 @@ http://localhost:8080
         │
         ▼
 4. "Analizar con IA" ←── El motor cruza perfil + proyecto vs. todas las convocatorias
-        │
+        │                    (streaming SSE: resultados aparecen uno a uno en tiempo real)
         ▼
 5. Ver lista priorizada con puntuación 0-100 y explicación en lenguaje natural
    (badge 🤖 si usó OpenAI, ⚙️ si usó motor de reglas)
@@ -108,8 +106,9 @@ http://localhost:8080
 | Seguridad | Spring Security 6 + JWT (jjwt 0.12.6) + BCrypt |
 | Persistencia | Spring Data JPA + Hibernate + PostgreSQL 17 |
 | Vistas | Thymeleaf 3 + Bootstrap 5 |
-| IA | OpenAI Chat Completions API (`gpt-4o-mini`) |
-| Datos BDNS | API pública de infosubvenciones.es |
+| IA | OpenAI Chat Completions API (`gpt-4.1`) con fallback rule-based |
+| Streaming | Server-Sent Events (SSE) con `SseEmitter` para feedback en tiempo real |
+| Datos BDNS | API pública de infosubvenciones.es (~615.000 convocatorias) |
 | Build | Maven Wrapper |
 | Puerto | `8080` |
 
@@ -154,8 +153,6 @@ SPRING_PROFILES_ACTIVE=prod
 git clone https://github.com/daniicg05/Syntia.git
 cd Syntia
 
-# (Opcional) Cargar datos de prueba
-# Ejecutar src/main/resources/data-test.sql en tu BD
 
 # Arrancar en desarrollo
 ./mvnw spring-boot:run
@@ -186,8 +183,8 @@ src/main/
 └── resources/
     ├── application.properties          Configuración base (desarrollo)
     ├── application-prod.properties     Configuración producción (vars de entorno)
-    ├── data-test.sql                   Datos de prueba
-    ├── static/javascript/              dashboard.js, perfil.js, proyecto.js, registro.js
+    ├── static/javascript/              dashboard.js, perfil.js, proyecto.js, registro.js,
+    │                                   recomendaciones-stream.js (cliente SSE)
     └── templates/
         ├── fragments/                  navbar-usuario, navbar-admin, footer
         ├── usuario/                    dashboard, perfil, perfil-ver, proyectos/*
@@ -237,61 +234,50 @@ Ambos aportan contexto distinto al motor:
 
 ---
 
-### Flujo completo paso a paso
+### Flujo completo paso a paso (v3.0.0 — SSE Streaming)
 
 ```
 Usuario pulsa "Analizar con IA" en un proyecto
                     │
                     ▼
-    RecomendacionController.generarRecomendaciones()
+    JavaScript abre conexión SSE (EventSource)
+    GET /usuario/proyectos/{id}/recomendaciones/generar-stream
                     │
                     ▼
-    MotorMatchingService.generarRecomendaciones(proyecto)
+    RecomendacionController.generarStream()
+    → CompletableFuture.runAsync() (no bloquea Tomcat)
+                    │
+                    ▼
+    MotorMatchingService.generarRecomendacionesStream(proyecto, emitter)
           │
-          ├─ 1. Borra recomendaciones anteriores del proyecto (para regenerar desde cero)
+          ├─ 1. Borra recomendaciones anteriores (TransactionTemplate)
+          │     ← SSE: "estado: Limpiando..."
           │
           ├─ 2. Carga el perfil del usuario (opcional, mejora el contexto)
           │
-          └─ 3. Itera sobre TODAS las convocatorias activas en BD
+          ├─ 3. OpenAI gpt-4.1 genera 6-8 keywords de búsqueda
+          │     ← SSE: "keywords: [subvencion pyme tecnología, ...]"
+          │
+          ├─ 4. Busca en API BDNS directamente con cada keyword
+          │     (15 resultados por keyword, deduplicación por título)
+          │     ← SSE: "busqueda: 15 candidatas encontradas"
+          │
+          └─ 5. Evalúa top 15 candidatas con OpenAI gpt-4.1
                           │
                           ▼
-             Para cada convocatoria → evaluarConFallback()
+             Para cada candidata:
                           │
-                          ├─── ¿Hay OPENAI_API_KEY configurada?
-                          │         │
-                          │        SÍ ──► OpenAiMatchingService.analizar()
-                          │                    │
-                          │                    ├─ Construye el PROMPT con:
-                          │                    │    · Proyecto: nombre, sector, ubicación, descripción
-                          │                    │    · Perfil:   tipo entidad, objetivos,
-                          │                    │                necesidades, descripción libre
-                          │                    │    · Convocatoria: título, tipo, sector, ámbito, fuente
-                          │                    │
-                          │                    └─ Envía a gpt-4o-mini → recibe JSON:
-                          │                         {"puntuacion": 78, "explicacion": "..."}
+                          ├─ Obtiene detalle BDNS (objeto, requisitos, beneficiarios)
+                          ├─ OpenAI evalúa → JSON: {puntuacion, explicacion, guia, sector}
+                          │     ← SSE: "progreso: 3/15 - Evaluando: Ayudas FEADER..."
                           │
-                          └─── NO (o falla OpenAI) ──► Motor Rule-Based (fallback)
-                                                            │
-                                                            ├─ +40 pts si sector coincide
-                                                            ├─ +30 pts si ubicación coincide
-                                                            ├─ +20 pts si convocatoria es nacional
-                                                            └─ +10 pts si keywords del título
-                                                                        aparecen en la descripción
+                          └─ Si puntuación ≥ 20 → persiste en BD
+                                ← SSE: "resultado: {titulo, puntuacion, explicacion, ...}"
+                                → Tarjeta aparece en tiempo real en el navegador 🎯
                           │
                           ▼
-          Si puntuación > 0 → guarda Recomendacion en BD
-               (con campo usadaIa = true/false)
-                          │
-                          ▼
-     Ordena todas por puntuación DESC y devuelve la lista
-                          │
-                          ▼
-     Vista recomendaciones.html muestra:
-          · Barra de progreso con la puntuación (0-100)
-          · Explicación en lenguaje natural
-          · Badge  🤖 Analizado por IA  o  ⚙️ Motor de reglas
-          · Enlace directo a la convocatoria oficial
-          · Filtros por tipo, sector, ubicación (delegados a BD)
+     ← SSE: "completado: 8 recomendaciones de 15 evaluadas"
+     → Barra verde 100%, recarga automática en 2.5s
 ```
 
 ### Ejemplo de prompt real enviado a OpenAI
@@ -314,9 +300,14 @@ Ambito: Nacional
 Fuente: BDNS
 ```
 
-OpenAI responde:
+OpenAI (gpt-4.1) responde:
 ```json
-{"puntuacion": 85, "explicacion": "Alta compatibilidad: el proyecto de digitalización agrícola encaja directamente con el objetivo de modernización del FEADER. La ubicación en Andalucía es elegible y las necesidades de I+D están alineadas con las bases de la convocatoria."}
+{
+  "puntuacion": 85,
+  "explicacion": "Alta compatibilidad: el proyecto de digitalización agrícola encaja directamente con el objetivo de modernización del FEADER. La ubicación en Andalucía es elegible y las necesidades de I+D están alineadas con las bases de la convocatoria.",
+  "sector": "Agricultura",
+  "guia": "Verificar que la entidad cumple los requisitos de beneficiario FEADER|Preparar memoria técnica del proyecto con presupuesto desglosado|Presentar solicitud en la sede electrónica de la Junta de Andalucía|Plazo estimado: consultar convocatoria oficial (puede variar)|Consejo: destacar el componente IoT como innovación tecnológica"
+}
 ```
 
 ### Resultado almacenado en BD
@@ -329,6 +320,7 @@ Cada recomendación guarda en la tabla `recomendaciones`:
 | `convocatoria_id` | 7 |
 | `puntuacion` | 85 |
 | `explicacion` | "Alta compatibilidad: el proyecto de digitalización…" |
+| `guia` | "Verificar que la entidad cumple...\|Preparar memoria técnica...\|..." |
 | `usada_ia` | `true` |
 
 ---
@@ -341,24 +333,27 @@ Toda la documentación del proyecto está en la carpeta `docs/`:
 |---------|-----------|
 | `01-requisitos.md` | Requisitos funcionales y no funcionales |
 | `02-plan-proyecto.md` | Plan de proyecto y hitos |
-| `03-especificaciones-tecnicas.md` | Stack, modelos de datos, endpoints |
-| `04-manual-desarrollo.md` | Guía de desarrollo + §8 despliegue en producción |
-| `05-changelog.md` | Historial de versiones (v0.1.0 → v1.8.0) |
-| `06-diagramas.md` | Diagramas de arquitectura y secuencia |
-| `07-fases-implementacion.md` | Estado real de las 7 fases implementadas |
+| `03-especificaciones-tecnicas.md` | Stack, modelos de datos, endpoints, estructura de paquetes |
+| `04-manual-desarrollo.md` | Guía de desarrollo + §7 API REST + §8 despliegue en producción |
+| `05-changelog.md` | Historial de versiones (v0.1.0 → v3.0.0) |
+| `06-diagramas.md` | Diagramas ER, clases UML, secuencia SSE, autenticación JWT |
+| `07-fases-implementacion.md` | Estado real de las 7 fases implementadas + backlog |
+| `08-informe-arquitectura-ia-streaming.md` | Análisis de arquitectura, SSE, optimización de tokens, roadmap |
 
 ---
 
 ## Versión actual
 
-**v1.8.0** — Todas las fases implementadas:
+**v3.0.0** — Todas las fases implementadas + SSE Streaming:
 - ✅ Autenticación + perfil de usuario
 - ✅ Gestión de proyectos (CRUD)
-- ✅ Motor de matching rule-based + OpenAI
+- ✅ Motor de matching con OpenAI gpt-4.1 + fallback rule-based
+- ✅ **SSE Streaming: resultados aparecen uno a uno en tiempo real**
+- ✅ **Optimización de tokens: ~67% reducción en consumo**
 - ✅ Dashboard interactivo + roadmap de fechas
 - ✅ Panel administrativo completo
 - ✅ API REST con JWT
-- ✅ Integración BDNS + perfil de producción + fragments Thymeleaf
+- ✅ Integración BDNS directa + perfil de producción + fragments Thymeleaf
 
 ---
 

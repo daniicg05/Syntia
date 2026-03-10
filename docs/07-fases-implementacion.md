@@ -1,6 +1,6 @@
 # Plan de Implementación por Fases: Syntia
 
-> Documento actualizado el **2026-03-09**. Refleja el estado real del código.
+> Documento actualizado el **2026-03-10**. Refleja el estado real del código.
 > Repositorio: https://github.com/daniicg05/Syntia.git
 
 ---
@@ -15,11 +15,12 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 - Persistencia: Spring Data JPA + PostgreSQL 17.2 (`syntia_db`)
 - Frontend: Thymeleaf + Bootstrap 5 + JavaScript vanilla
 - **IA:** OpenAI Chat Completions API (`gpt-4.1`) con fallback rule-based automático
+- **Streaming:** Server-Sent Events (SSE) con `SseEmitter` + `CompletableFuture` + `TransactionTemplate`
 - Puerto: `8080` | BD usuario: `syntia` / pass: `syntia`
 
 ---
 
-## Estado Actual (2026-03-09) — v2.3.0
+## Estado Actual (2026-03-10) — v3.0.0
 
 | Componente | Estado |
 |------------|--------|
@@ -33,6 +34,7 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 | Perfil de usuario (crear/editar/ver) | ✅ Completo |
 | Gestión de proyectos (CRUD) | ✅ Completo |
 | Motor de matching (búsqueda directa BDNS + OpenAI gpt-4.1) | ✅ Completo |
+| **SSE Streaming (feedback en tiempo real durante análisis IA)** | ✅ Completo |
 | Filtrado convocatorias caducadas (`vigente=true` + filtro en memoria) | ✅ Completo |
 | Recomendaciones (generar, ver, filtrar) | ✅ Completo |
 | Dashboard usuario (métricas, top recs, roadmap) | ✅ Completo |
@@ -45,7 +47,8 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 | Aviso legal público (`/aviso-legal`) | ✅ Completo |
 | Optimización N+1 métricas admin | ✅ Completo |
 | Filtros recomendaciones delegados a BD | ✅ Completo |
-| Persistencia selectiva (solo convocatorias recomendadas ≥ 40pts) | ✅ Completo |
+| Persistencia selectiva (solo convocatorias recomendadas ≥ 20pts) | ✅ Completo |
+| **Optimización de tokens (max-tokens=350, 15 candidatas máx)** | ✅ Completo |
 | Datos de prueba (`data-test.sql`) | ❌ Eliminado (se usan datos reales de BDNS) |
 | Perfil Spring producción (`application-prod.properties`) | ✅ Completo |
 
@@ -78,7 +81,7 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 ---
 
 ## Fase 3 – Motor de Matching con IA
-> **Estado: ✅ COMPLETADA (v1.2.0 + v1.7.0 + v2.0.0 + v2.1.0 + v2.3.0)**
+> **Estado: ✅ COMPLETADA (v1.2.0 + v1.7.0 + v2.0.0 + v2.1.0 + v2.3.0 + v3.0.0)**
 
 | # | Funcionalidad | Estado |
 |---|--------------|--------|
@@ -89,34 +92,49 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 | 3.5 | Evaluación semántica de compatibilidad con gpt-4.1 | ✅ |
 | 3.6 | Puntuación 0-100 con criterios explícitos por rango | ✅ |
 | 3.7 | Explicación en lenguaje natural (punto fuerte + condición a verificar) | ✅ |
-| 3.8 | Persistencia selectiva: solo convocatorias ≥ 40 puntos se guardan en BD | ✅ |
-| 3.9 | Fallback automático a motor rule-based si OpenAI no disponible | ✅ |
-| 3.10 | Filtrado recomendaciones por tipo, sector, ubicación (delegado a BD) | ✅ |
+| 3.8 | Guía de solicitud de 5 pasos generada por IA | ✅ |
+| 3.9 | Persistencia selectiva: solo convocatorias ≥ 20 puntos se guardan en BD | ✅ |
+| 3.10 | Fallback automático a motor rule-based si OpenAI no disponible | ✅ |
+| 3.11 | Filtrado recomendaciones por tipo, sector, ubicación (delegado a BD) | ✅ |
+| 3.12 | **SSE Streaming: resultados aparecen uno a uno en tiempo real** | ✅ |
+| 3.13 | **Ejecución asíncrona: `CompletableFuture` + `TransactionTemplate`** | ✅ |
+| 3.14 | **Optimización de tokens: max-tokens=350, 15 candidatas máx** | ✅ |
 
-**Flujo del motor:**
+**Flujo del motor (v3.0.0):**
 ```
 Perfil + Proyecto
       ↓
-OpenAI gpt-4.1 → genera 4-6 keywords de búsqueda
+OpenAI gpt-4.1 → genera 6-8 keywords de búsqueda
       ↓
-API BDNS real (?vigente=true) → 20 resultados por keyword
+API BDNS real (?vigente=true) → 15 resultados por keyword
       ↓
-Deduplicación en memoria por título → top 20 candidatas
+Deduplicación en memoria por título → top 15 candidatas
       ↓
-OpenAI evalúa cada candidata → puntuación 0-100 + explicación
+Por cada candidata:
+  ├─ API BDNS detalle (objeto, requisitos, beneficiarios)
+  ├─ OpenAI evalúa → puntuación 0-100 + explicación + guía 5 pasos
+  ├─ SSE: evento "progreso" + evento "resultado" si ≥ 20 puntos
+  └─ Persistencia selectiva en BD (TransactionTemplate)
       ↓
-≥ 40 puntos → se persiste convocatoria + recomendación en BD
+SSE: evento "completado" → recarga de página (2.5s)
+```
+
+**Constantes del motor (`MotorMatchingService.java`):**
+```java
+UMBRAL_RECOMENDACION = 20    // Mínimo para persistir (0-100)
+RESULTADOS_POR_KEYWORD = 15  // Resultados BDNS por keyword
+MAX_CANDIDATAS_IA = 15       // Máximo de evaluaciones OpenAI
 ```
 
 **Configuración (`application.properties`):**
 ```properties
 openai.api-key=${OPENAI_API_KEY:}   # vacío = fallback a motor rule-based
 openai.model=gpt-4.1
-openai.max-tokens=150
-openai.temperature=0.1
+openai.max-tokens=350               # JSON de respuesta ~200-350 tokens
+openai.temperature=0.1              # Determinismo alto
 ```
 
-**Componentes:** `MotorMatchingService`, `OpenAiClient`, `OpenAiMatchingService`, `BdnsClientService`, `RecomendacionService`, `RecomendacionController`, `RecomendacionDTO`, `recomendaciones.html`
+**Componentes:** `MotorMatchingService`, `OpenAiClient`, `OpenAiMatchingService`, `BdnsClientService`, `RecomendacionService`, `RecomendacionController`, `RecomendacionDTO`, `recomendaciones.html`, `recomendaciones-stream.js`
 
 ---
 
@@ -166,9 +184,17 @@ openai.temperature=0.1
 
 | # | Mejora | Prioridad |
 |---|--------|-----------|
-| B.1 | Alertas automáticas por email cuando aparezcan nuevas convocatorias compatibles | Media |
-| B.2 | Exportación de recomendaciones en PDF | Media |
-| B.3 | Estimación de probabilidad de éxito según perfil histórico | Baja |
-| B.4 | Integración con fuentes europeas (Horizon Europe, FEDER) | Baja |
+| B.1 | Caché de keywords por proyecto (Caffeine, 24h TTL) | Alta |
+| B.2 | Caché de detalles BDNS (Caffeine, 1h TTL) | Alta |
+| B.3 | Paralelizar evaluaciones OpenAI con CompletableFuture.supplyAsync() | Alta |
+| B.4 | Rate limiting por usuario (cooldown 60s por proyecto) | Alta |
 | B.5 | Tests de integración automatizados (JUnit 5 + MockMvc) | Alta |
+| B.6 | System prompt compacto (~200 tokens en lugar de ~500) | Media |
+| B.7 | Pre-screening con gpt-4.1-mini (barato) antes de gpt-4.1 | Media |
+| B.8 | Batch evaluation (3 convocatorias por prompt) | Media |
+| B.9 | Alertas automáticas por email cuando aparezcan nuevas convocatorias compatibles | Media |
+| B.10 | Exportación de recomendaciones en PDF | Media |
+| B.11 | Rehabilitar CSRF para formularios Thymeleaf | Baja |
+| B.12 | Estimación de probabilidad de éxito según perfil histórico | Baja |
+| B.13 | Integración con fuentes europeas (Horizon Europe, FEDER) | Baja |
 

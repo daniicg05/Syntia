@@ -16,9 +16,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Controlador MVC para las recomendaciones de un proyecto.
@@ -129,6 +131,51 @@ public class RecomendacionController {
             redirectAttributes.addFlashAttribute("exito", msg);
         }
         return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";
+    }
+
+    /**
+     * Endpoint SSE para generar recomendaciones con feedback en tiempo real.
+     * El análisis se ejecuta en un hilo separado, emitiendo eventos progresivos:
+     * - "estado": mensajes de texto de progreso
+     * - "keywords": keywords generadas por IA
+     * - "busqueda": candidatas encontradas en BDNS
+     * - "progreso": progreso de evaluación (actual/total)
+     * - "resultado": cada recomendación encontrada (aparece en tiempo real)
+     * - "completado": resumen final
+     * - "error": si ocurre un error
+     */
+    @GetMapping(value = "/generar-stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter generarStream(@PathVariable Long proyectoId,
+                                     Authentication authentication) {
+
+        // Timeout de 3 minutos — el análisis de 15 candidatas tarda ~30-60s
+        SseEmitter emitter = new SseEmitter(180_000L);
+
+        Usuario usuario = resolverUsuario(authentication);
+        Proyecto proyecto = proyectoService.obtenerPorId(proyectoId, usuario.getId());
+
+        // Ejecutar en hilo separado para no bloquear Tomcat
+        CompletableFuture.runAsync(() -> {
+            try {
+                motorMatchingService.generarRecomendacionesStream(proyecto, emitter);
+                emitter.complete();
+            } catch (Exception e) {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data("\"Error interno: " + e.getMessage().replace("\"", "'") + "\"",
+                                    org.springframework.http.MediaType.APPLICATION_JSON));
+                } catch (Exception ignored) {}
+                emitter.completeWithError(e);
+            }
+        });
+
+        emitter.onTimeout(emitter::complete);
+        emitter.onError(e -> {
+            // Silenciar — el cliente se desconectó
+        });
+
+        return emitter;
     }
 
     private Usuario resolverUsuario(Authentication authentication) {

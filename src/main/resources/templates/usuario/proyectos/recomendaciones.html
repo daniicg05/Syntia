@@ -41,12 +41,47 @@
                 <span class="badge bg-secondary ms-2" th:if="${proyecto.sector}" th:text="${proyecto.sector}"></span>
             </p>
         </div>
-        <form th:action="@{/usuario/proyectos/{id}/recomendaciones/generar(id=${proyecto.id})}" method="post">
-            <button type="submit" class="btn btn-primary">
+        <div class="d-flex gap-2">
+            <!-- Botón SSE (streaming con feedback en tiempo real) -->
+            <button type="button" id="btnAnalizar" class="btn btn-primary"
+                    th:onclick="|iniciarAnalisisStream(${proyecto.id})|">
                 🤖 Analizar con IA
             </button>
-        </form>
+            <!-- Formulario síncrono como fallback (oculto por defecto, visible sin JS) -->
+            <noscript>
+                <form th:action="@{/usuario/proyectos/{id}/recomendaciones/generar(id=${proyecto.id})}" method="post">
+                    <button type="submit" class="btn btn-primary">
+                        🤖 Analizar con IA
+                    </button>
+                </form>
+            </noscript>
+        </div>
     </div>
+
+    <!-- Panel de progreso SSE (oculto por defecto) -->
+    <div id="panelProgreso" class="card shadow-sm mb-4 border-0 border-start border-3 border-primary" style="display:none;">
+        <div class="card-body">
+            <div class="d-flex align-items-center mb-2">
+                <div class="spinner-border spinner-border-sm text-primary me-2" id="spinnerProgreso" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <div id="estadoTexto" class="fw-semibold">Iniciando análisis...</div>
+            </div>
+            <div class="progress mb-2" style="height: 8px;">
+                <div id="barraProgreso" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                     role="progressbar" style="width: 0%"></div>
+            </div>
+            <div class="d-flex justify-content-between">
+                <div id="progresoDetalle" class="small text-muted"></div>
+                <div class="small text-muted">
+                    Encontradas: <span id="contadorResultados" class="fw-bold text-success">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor para resultados que llegan en streaming (antes de la sección estática) -->
+    <div id="resultadosStream" class="row g-3 mb-4"></div>
 
     <!-- Alertas -->
     <div th:if="${exito}" class="alert alert-success alert-dismissible fade show">
@@ -270,6 +305,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/javascript/recomendaciones-stream.js}"></script>
 <script>
 function abrirGuia(modalId) {
     var el = document.getElementById(modalId);

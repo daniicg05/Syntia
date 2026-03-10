@@ -1,4 +1,4 @@
-# Diagramas Syntia – Versión revisada y completa (2026-03-05)
+# Diagramas Syntia – Versión revisada y completa (2026-03-10)
 
 ---
 
@@ -42,6 +42,8 @@ erDiagram
         string ubicacion
         string url_oficial
         string fuente
+        string id_bdns
+        string numero_convocatoria
         date fecha_cierre
     }
 
@@ -51,6 +53,8 @@ erDiagram
         int convocatoria_id FK
         int puntuacion
         text explicacion
+        text guia
+        boolean usada_ia
         datetime generada_en
     }
 
@@ -64,7 +68,7 @@ erDiagram
 
 ## 2. Diagrama de Clases UML
 
-> **Actualizado a 2026-03-05** — Refleja el estado real de la implementación (fases 1–6).
+> **Actualizado a 2026-03-10 (v3.0.0)** — Refleja el estado real de la implementación incluyendo SSE streaming, OpenAI y BDNS.
 
 ```mermaid
 classDiagram
@@ -108,6 +112,8 @@ classDiagram
         +String ubicacion
         +String urlOficial
         +String fuente
+        +String idBdns
+        +String numeroConvocatoria
         +LocalDate fechaCierre
     }
 
@@ -115,6 +121,8 @@ classDiagram
         +Long id
         +int puntuacion
         +String explicacion
+        +String guia
+        +boolean usadaIa
         +LocalDateTime generadaEn
     }
 
@@ -163,12 +171,39 @@ classDiagram
     }
 
     class MotorMatchingService {
+        -int UMBRAL_RECOMENDACION = 20
+        -int RESULTADOS_POR_KEYWORD = 15
+        -int MAX_CANDIDATAS_IA = 15
+        -TransactionTemplate transactionTemplate
         +generarRecomendaciones(proyecto) List~Recomendacion~
+        +generarRecomendacionesStream(proyecto, emitter) void
+    }
+
+    class OpenAiClient {
+        -String apiKey
+        -String model
+        -int maxTokens
+        -double temperature
+        +chat(systemPrompt, userPrompt) String
+    }
+
+    class OpenAiMatchingService {
+        +analizar(proyecto, perfil, convocatoria, detalle) ResultadoIA
+        +generarKeywordsBusqueda(proyecto, perfil) List~String~
+    }
+
+    class BdnsClientService {
+        +importar(pagina, tamano) List~ConvocatoriaDTO~
+        +buscarPorTexto(keywords, pagina, tamano) List~ConvocatoriaDTO~
+        +obtenerDetalleTexto(idBdns) String
     }
 
     class RecomendacionService {
         +obtenerPorProyecto(proyectoId) List~RecomendacionDTO~
         +contarPorProyecto(proyectoId) long
+        +filtrar(proyectoId, tipo, sector, ubicacion) List~RecomendacionDTO~
+        +obtenerTiposDistintos(proyectoId) List~String~
+        +obtenerSectoresDistintos(proyectoId) List~String~
     }
 
     class ConvocatoriaService {
@@ -178,6 +213,7 @@ classDiagram
         +actualizar(id, dto) Convocatoria
         +eliminar(id) void
         +toDTO(convocatoria) ConvocatoriaDTO
+        +importarDesdeBdns(pagina, tamano) int
     }
 
     class DashboardService {
@@ -196,9 +232,11 @@ classDiagram
     UsuarioService --> Usuario : gestiona
     PerfilService --> Perfil : gestiona
     ProyectoService --> Proyecto : gestiona
-    MotorMatchingService --> Recomendacion : crea
-    MotorMatchingService --> ConvocatoriaService : consulta
-    RecomendacionService --> Recomendacion : lee
+    MotorMatchingService --> OpenAiMatchingService : genera keywords y evalúa
+    MotorMatchingService --> BdnsClientService : busca convocatorias
+    MotorMatchingService --> Recomendacion : crea y persiste
+    OpenAiMatchingService --> OpenAiClient : envía prompts
+    RecomendacionService --> Recomendacion : lee y filtra
     ConvocatoriaService --> Convocatoria : gestiona
     DashboardService --> ProyectoService : usa
     DashboardService --> RecomendacionService : usa
@@ -244,29 +282,58 @@ flowchart TD
 
 ---
 
-## 4. Diagrama de Secuencia UML – Flujo principal de recomendación
+## 4. Diagrama de Secuencia UML – Flujo de Recomendación con SSE Streaming
+
+> **Actualizado a v3.0.0** — Refleja el flujo real con SSE, OpenAI y BDNS.
 
 ```mermaid
 sequenceDiagram
     actor Usuario
-    participant Frontend
-    participant Backend
-    participant MotorMatching
-    participant BDNS
+    participant Navegador as Navegador (EventSource)
+    participant Controller as RecomendacionController
+    participant Motor as MotorMatchingService
+    participant OpenAI as OpenAI API (gpt-4.1)
+    participant BDNS as API BDNS
+    participant BD as PostgreSQL
 
-    Usuario->>Frontend: Completa perfil y crea proyecto
-    Frontend->>Backend: POST /perfil
-    Backend->>Backend: Valida y almacena perfil
-    Frontend->>Backend: POST /proyectos
-    Backend->>Backend: Valida y almacena proyecto
-    Backend->>MotorMatching: generarRecomendaciones(proyecto)
-    MotorMatching->>BDNS: Recupera convocatorias
-    BDNS-->>MotorMatching: Lista de convocatorias
-    MotorMatching->>MotorMatching: Filtra y prioriza
-    MotorMatching-->>Backend: Recomendaciones con explicaciones
-    Backend->>Backend: Almacena recomendaciones
-    Backend-->>Frontend: Recomendaciones priorizadas
-    Frontend-->>Usuario: Dashboard con roadmap estratégico
+    Usuario->>Navegador: Click "Analizar con IA"
+    Navegador->>Controller: GET /generar-stream (SSE)
+    Controller->>Controller: Crea SseEmitter (timeout 180s)
+    Controller->>Controller: CompletableFuture.runAsync()
+    Controller-->>Navegador: SseEmitter (conexión SSE abierta)
+
+    Note over Motor, BD: Ejecución en hilo separado (no bloquea Tomcat)
+
+    Motor->>BD: DELETE recomendaciones anteriores
+    Motor-->>Navegador: SSE estado: "Limpiando..."
+
+    Motor->>OpenAI: Generar 6-8 keywords de búsqueda
+    OpenAI-->>Motor: ["kw1", "kw2", ...]
+    Motor-->>Navegador: SSE keywords: {total, keywords[]}
+
+    loop Por cada keyword
+        Motor->>BDNS: GET búsqueda (?vigente=true)
+        BDNS-->>Motor: Convocatorias candidatas
+    end
+    Motor->>Motor: Deduplicación por título → top 15
+    Motor-->>Navegador: SSE busqueda: {candidatas: 15}
+
+    loop Por cada candidata (1..15)
+        Motor-->>Navegador: SSE progreso: {actual, total, titulo}
+        Motor->>BDNS: GET detalle convocatoria
+        BDNS-->>Motor: Texto enriquecido (objeto, requisitos, beneficiarios)
+        Motor->>OpenAI: Evaluar compatibilidad (puntuacion + explicacion + guia)
+        OpenAI-->>Motor: {puntuacion: 85, explicacion: "...", guia: "..."}
+
+        alt puntuacion ≥ 20
+            Motor->>BD: Persistir convocatoria + recomendación
+            Motor-->>Navegador: SSE resultado: {titulo, puntuacion, explicacion, ...}
+            Note over Navegador: Tarjeta aparece en tiempo real
+        end
+    end
+
+    Motor-->>Navegador: SSE completado: {totalRecomendaciones, totalEvaluadas}
+    Note over Navegador: Barra verde 100%, recarga en 2.5s
 ```
 
 ---
