@@ -6,12 +6,185 @@
     <title th:text="'Syntia – Recomendaciones: ' + ${proyecto.nombre}">Syntia – Recomendaciones</title>
     <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
     <style>
-        .paso-item { border-left: 3px solid #0d6efd; padding-left: 1rem; margin-bottom: 1rem; }
-        .paso-item:last-child { margin-bottom: 0; }
-        .paso-numero { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #0d6efd; font-weight: 700; }
+        /* ── Puntuación ── */
         .puntuacion-alta  { color: #198754; }
         .puntuacion-media { color: #ffc107; }
         .puntuacion-baja  { color: #6c757d; }
+
+        /* ── Stepper horizontal (flujo visual de pantallas) ── */
+        .stepper-flow {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 1rem 0.5rem;
+            overflow-x: auto;
+            gap: 0;
+        }
+        .stepper-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 80px;
+            position: relative;
+            z-index: 1;
+        }
+        .stepper-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            background: #e9ecef;
+            border: 3px solid #dee2e6;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .stepper-step.active .stepper-icon {
+            background: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+        }
+        .stepper-step.completed .stepper-icon {
+            background: #198754;
+            border-color: #198754;
+            color: white;
+        }
+        .stepper-label {
+            font-size: 0.6rem;
+            text-align: center;
+            margin-top: 6px;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+            max-width: 80px;
+        }
+        .stepper-step.active .stepper-label { color: #0d6efd; }
+        .stepper-step.completed .stepper-label { color: #198754; }
+
+        /* Conectores entre pasos */
+        .stepper-connector {
+            flex: 1;
+            height: 3px;
+            background: #dee2e6;
+            align-self: center;
+            margin-top: -18px;
+            min-width: 20px;
+            position: relative;
+            z-index: 0;
+        }
+        .stepper-connector.active {
+            background: linear-gradient(90deg, #198754, #0d6efd);
+        }
+        .stepper-connector.completed {
+            background: #198754;
+        }
+
+        /* ── Timeline vertical (pasos de IA) ── */
+        .guia-timeline {
+            position: relative;
+            padding-left: 0;
+        }
+        .guia-timeline::before {
+            content: '';
+            position: absolute;
+            left: 23px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #0d6efd 0%, #198754 100%);
+            border-radius: 2px;
+        }
+        .guia-paso {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            position: relative;
+            opacity: 0;
+            transform: translateX(-10px);
+            animation: fadeInPaso 0.4s ease forwards;
+        }
+        .guia-paso:last-child { margin-bottom: 0; }
+        @keyframes fadeInPaso {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .guia-paso:nth-child(1) { animation-delay: 0.05s; }
+        .guia-paso:nth-child(2) { animation-delay: 0.1s; }
+        .guia-paso:nth-child(3) { animation-delay: 0.15s; }
+        .guia-paso:nth-child(4) { animation-delay: 0.2s; }
+        .guia-paso:nth-child(5) { animation-delay: 0.25s; }
+        .guia-paso:nth-child(6) { animation-delay: 0.3s; }
+        .guia-paso:nth-child(7) { animation-delay: 0.35s; }
+        .guia-paso:nth-child(8) { animation-delay: 0.4s; }
+
+        .guia-paso-icon {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            background: white;
+            border: 3px solid #0d6efd;
+            z-index: 1;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .guia-paso-content {
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            flex: 1;
+            border-left: 3px solid #0d6efd;
+        }
+        .guia-paso-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .guia-paso-text {
+            font-size: 0.85rem;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        /* Colores por paso */
+        .guia-paso[data-step="1"] .guia-paso-icon { border-color: #dc3545; }
+        .guia-paso[data-step="1"] .guia-paso-content { border-left-color: #dc3545; }
+        .guia-paso[data-step="1"] .guia-paso-label { color: #dc3545; }
+        .guia-paso[data-step="2"] .guia-paso-icon { border-color: #fd7e14; }
+        .guia-paso[data-step="2"] .guia-paso-content { border-left-color: #fd7e14; }
+        .guia-paso[data-step="2"] .guia-paso-label { color: #fd7e14; }
+        .guia-paso[data-step="3"] .guia-paso-icon { border-color: #0d6efd; }
+        .guia-paso[data-step="3"] .guia-paso-content { border-left-color: #0d6efd; }
+        .guia-paso[data-step="3"] .guia-paso-label { color: #0d6efd; }
+        .guia-paso[data-step="4"] .guia-paso-icon { border-color: #6f42c1; }
+        .guia-paso[data-step="4"] .guia-paso-content { border-left-color: #6f42c1; }
+        .guia-paso[data-step="4"] .guia-paso-label { color: #6f42c1; }
+        .guia-paso[data-step="5"] .guia-paso-icon { border-color: #20c997; }
+        .guia-paso[data-step="5"] .guia-paso-content { border-left-color: #20c997; }
+        .guia-paso[data-step="5"] .guia-paso-label { color: #20c997; }
+        .guia-paso[data-step="6"] .guia-paso-icon { border-color: #0dcaf0; }
+        .guia-paso[data-step="6"] .guia-paso-content { border-left-color: #0dcaf0; }
+        .guia-paso[data-step="6"] .guia-paso-label { color: #0dcaf0; }
+        .guia-paso[data-step="7"] .guia-paso-icon { border-color: #198754; }
+        .guia-paso[data-step="7"] .guia-paso-content { border-left-color: #198754; }
+        .guia-paso[data-step="7"] .guia-paso-label { color: #198754; }
+        .guia-paso[data-step="8"] .guia-paso-icon { border-color: #ffc107; }
+        .guia-paso[data-step="8"] .guia-paso-content { border-left-color: #ffc107; background: #fff8e1; }
+        .guia-paso[data-step="8"] .guia-paso-label { color: #856404; }
+
+        /* ── Scrollbar para stepper en móvil ── */
+        .stepper-flow::-webkit-scrollbar { height: 4px; }
+        .stepper-flow::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 2px; }
     </style>
 </head>
 <body class="bg-light">
@@ -118,33 +291,26 @@
                     <label class="form-label small fw-semibold">Tipo</label>
                     <select th:if="${!#lists.isEmpty(tipos)}" name="tipo" class="form-select form-select-sm">
                         <option value="" th:selected="${filtrTipo == null or filtrTipo == ''}">Todos los tipos</option>
-                        <option th:each="t : ${tipos}"
-                                th:value="${t}"
-                                th:text="${t}"
+                        <option th:each="t : ${tipos}" th:value="${t}" th:text="${t}"
                                 th:selected="${filtrTipo != null and filtrTipo == t}"></option>
                     </select>
                     <span th:unless="${!#lists.isEmpty(tipos)}"
-                          class="form-control form-control-sm text-muted bg-light"
-                          style="font-size:0.8rem;">Sin tipos disponibles</span>
+                          class="form-control form-control-sm text-muted bg-light" style="font-size:0.8rem;">Sin tipos disponibles</span>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Sector</label>
                     <select th:if="${!#lists.isEmpty(sectores)}" name="sector" class="form-select form-select-sm">
                         <option value="" th:selected="${filtrSector == null or filtrSector == ''}">Todos los sectores</option>
-                        <option th:each="s : ${sectores}"
-                                th:value="${s}"
-                                th:text="${s}"
+                        <option th:each="s : ${sectores}" th:value="${s}" th:text="${s}"
                                 th:selected="${filtrSector != null and filtrSector == s}"></option>
                     </select>
                     <span th:unless="${!#lists.isEmpty(sectores)}"
-                          class="form-control form-control-sm text-muted bg-light"
-                          style="font-size:0.8rem;">Sin sectores — regenera el análisis</span>
+                          class="form-control form-control-sm text-muted bg-light" style="font-size:0.8rem;">Sin sectores — regenera el análisis</span>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Ubicación <span class="text-muted fw-normal">(búsqueda parcial)</span></label>
                     <input type="text" name="ubicacion" class="form-control form-control-sm"
-                           placeholder="Ej: Cataluña, Madrid..."
-                           th:value="${filtrUbicacion != null ? filtrUbicacion : ''}">
+                           placeholder="Ej: Cataluña, Madrid..." th:value="${filtrUbicacion != null ? filtrUbicacion : ''}">
                 </div>
                 <div class="col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-outline-primary btn-sm flex-fill">Filtrar</button>
@@ -157,7 +323,6 @@
 
     <!-- Resultados -->
     <div th:if="${totalSinFiltro > 0}">
-
         <p class="text-muted small mb-3">
             <span th:if="${filtrTipo == null and filtrSector == null and (filtrUbicacion == null or filtrUbicacion == '')}">
                 <strong th:text="${totalSinFiltro}"></strong> recomendaciones encontradas.
@@ -178,29 +343,22 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-
-                            <!-- Info principal -->
                             <div class="flex-grow-1">
                                 <h5 class="card-title mb-1" th:text="${rec.titulo}"></h5>
                                 <div class="mb-2">
-                                    <span class="badge bg-primary me-1"    th:if="${rec.tipo}"     th:text="${rec.tipo}"></span>
-                                    <span class="badge bg-secondary me-1"  th:if="${rec.sector}"   th:text="${rec.sector}"></span>
+                                    <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
+                                    <span class="badge bg-secondary me-1" th:if="${rec.sector}" th:text="${rec.sector}"></span>
                                     <span class="badge bg-info text-dark me-1" th:if="${rec.ubicacion}" th:text="${rec.ubicacion}"></span>
                                     <span class="badge bg-light text-dark border" th:if="${rec.fuente}" th:text="${rec.fuente}"></span>
-                                    <span th:if="${rec.usadaIa}" class="badge bg-success ms-1"
-                                          title="Analizado por OpenAI gpt-4.1">🤖 IA</span>
+                                    <span th:if="${rec.usadaIa}" class="badge bg-success ms-1" title="Analizado por OpenAI gpt-4.1">🤖 IA</span>
                                     <span th:unless="${rec.usadaIa}" class="badge bg-light text-muted border ms-1">⚙️ Reglas</span>
                                 </div>
                                 <p class="text-muted small mb-2" th:text="${rec.explicacion}"></p>
                                 <p class="small mb-0" th:if="${rec.fechaCierre}">
                                     <strong>Fecha límite:</strong>
-                                    <span th:text="${#temporals.format(rec.fechaCierre, 'dd/MM/yyyy')}"
-                                          th:classappend="${rec.fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-danger fw-bold' : 'text-muted'">
-                                    </span>
+                                    <span th:text="${#temporals.format(rec.fechaCierre, 'dd/MM/yyyy')}" th:classappend="${rec.fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-danger fw-bold' : 'text-muted'"></span>
                                 </p>
                             </div>
-
-                            <!-- Puntuación -->
                             <div class="text-center ms-3" style="min-width:80px;">
                                 <div class="display-6 fw-bold"
                                      th:classappend="${rec.puntuacion >= 70} ? 'puntuacion-alta' : (${rec.puntuacion >= 40} ? 'puntuacion-media' : 'puntuacion-baja')"
@@ -209,40 +367,32 @@
                                 <div class="progress mt-1" style="height:6px;">
                                     <div class="progress-bar"
                                          th:classappend="${rec.puntuacion >= 70} ? 'bg-success' : (${rec.puntuacion >= 40} ? 'bg-warning' : 'bg-secondary')"
-                                         role="progressbar"
-                                         th:style="'width:' + ${rec.puntuacion} + '%'"></div>
+                                         role="progressbar" th:style="'width:' + ${rec.puntuacion} + '%'"></div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- ── BOTONES DE ACCIÓN ── -->
                         <div class="mt-3 d-flex flex-wrap gap-2">
-
                             <!-- Botón guía: siempre visible -->
-                            <button type="button"
-                                    class="btn btn-success btn-sm"
+                            <button type="button" class="btn btn-success btn-sm"
                                     th:onclick="|abrirGuia('modalGuia${rec.id}')|">
                                 📋 Ver guía de solicitud
                             </button>
 
                             <!-- Enlace convocatoria oficial -->
-                            <a th:if="${rec.urlOficial}"
-                               th:href="${rec.urlOficial}"
-                               target="_blank" rel="noopener noreferrer"
-                               class="btn btn-outline-primary btn-sm">
+                            <a th:if="${rec.urlOficial}" th:href="${rec.urlOficial}"
+                               target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">
                                 Ver convocatoria oficial ↗
                             </a>
                         </div>
                     </div>
                 </div>
 
-                <!-- ── MODAL GUÍA ── -->
-                <div th:id="|modalGuia${rec.id}|"
-                     class="modal fade" tabindex="-1" role="dialog">
-                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <!-- ══ MODAL GUÍA CON STEPPER VISUAL ══ -->
+                <div th:id="|modalGuia${rec.id}|" class="modal fade" tabindex="-1" role="dialog">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">📋 Guía de solicitud</h5>
+                                <h5 class="modal-title">📋 Guía de solicitud — Flujo completo</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -257,36 +407,98 @@
                                     </div>
                                 </div>
 
-                                <!-- Sin guía todavía -->
-                                <div th:if="${rec.guia == null or #strings.isEmpty(rec.guia)}"
-                                     class="alert alert-info">
-                                    Esta recomendación no tiene guía generada todavía.<br>
-                                    Pulsa <strong>⚡ Analizar con IA</strong> para regenerar las recomendaciones con guía incluida.
-                                </div>
-
-                                <!-- Pasos separados por | -->
-                                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
-                                     th:with="pasos=${#strings.arraySplit(rec.guia, '|')}">
-                                    <div th:each="paso, iterStat : ${pasos}"
-                                         th:if="${!#strings.isEmpty(#strings.trim(paso))}"
-                                         class="paso-item">
-                                        <div class="paso-numero">Paso <span th:text="${iterStat.index + 1}"></span></div>
-                                        <div class="small mt-1" th:text="${#strings.trim(paso)}"></div>
+                                <!-- ── STEPPER VISUAL HORIZONTAL (flujo de pantallas) ── -->
+                                <div class="card border-0 bg-white shadow-sm mb-4">
+                                    <div class="card-body py-3">
+                                        <div class="small text-muted text-center mb-2 fw-semibold">
+                                            📍 Flujo del proceso de solicitud
+                                        </div>
+                                        <div class="stepper-flow" role="list" aria-label="Flujo de solicitud">
+                                            <div class="stepper-step completed"><div class="stepper-icon">🏛️</div><div class="stepper-label">Portal convocatoria</div></div>
+                                            <div class="stepper-connector completed"></div>
+                                            <div class="stepper-step completed"><div class="stepper-icon">📄</div><div class="stepper-label">Requisitos legales</div></div>
+                                            <div class="stepper-connector completed"></div>
+                                            <div class="stepper-step active"><div class="stepper-icon">📎</div><div class="stepper-label">Documentación</div></div>
+                                            <div class="stepper-connector active"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">💻</div><div class="stepper-label">Sede electrónica</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">📅</div><div class="stepper-label">Plazos</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">⚖️</div><div class="stepper-label">Régimen concesión</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">✅</div><div class="stepper-label">Post-concesión</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">⚠️</div><div class="stepper-label">Advertencias</div></div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Aviso -->
+                                <!-- Sin guía todavía -->
+                                <div th:if="${rec.guia == null or #strings.isEmpty(rec.guia)}" class="alert alert-info">
+                                    Esta recomendación no tiene guía generada todavía.<br>
+                                    Pulsa <strong>🤖 Analizar con IA</strong> para regenerar las recomendaciones con guía incluida.
+                                </div>
+
+                                <!-- ── TIMELINE VERTICAL CON PASOS DE IA ── -->
+                                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                     th:with="pasos=${#strings.arraySplit(rec.guia, '|')}"
+                                     class="guia-timeline">
+
+                                    <!--/*
+                                      Mapeo fijo: paso 1→Requisitos legales, 2→Documentación, 3→Sede electrónica,
+                                      4→Plazos, 5→Régimen concesión, 6→Post-concesión, 7→Justificación, 8→Advertencias
+                                    */-->
+                                    <div th:each="paso, iterStat : ${pasos}"
+                                         th:if="${!#strings.isEmpty(#strings.trim(paso))}"
+                                         class="guia-paso"
+                                         th:attr="data-step=${iterStat.index + 1}">
+
+                                        <!-- Icono del paso -->
+                                        <div class="guia-paso-icon">
+                                            <span th:switch="${iterStat.index}">
+                                                <span th:case="0">📄</span>
+                                                <span th:case="1">📎</span>
+                                                <span th:case="2">💻</span>
+                                                <span th:case="3">📅</span>
+                                                <span th:case="4">⚖️</span>
+                                                <span th:case="5">✅</span>
+                                                <span th:case="6">🧾</span>
+                                                <span th:case="7">⚠️</span>
+                                                <span th:case="*">📌</span>
+                                            </span>
+                                        </div>
+
+                                        <!-- Contenido del paso -->
+                                        <div class="guia-paso-content">
+                                            <div class="guia-paso-label">
+                                                <span th:switch="${iterStat.index}">
+                                                    <span th:case="0">Paso 1 — Requisitos legales</span>
+                                                    <span th:case="1">Paso 2 — Documentación obligatoria</span>
+                                                    <span th:case="2">Paso 3 — Acceso y presentación</span>
+                                                    <span th:case="3">Paso 4 — Plazos y calendario</span>
+                                                    <span th:case="4">Paso 5 — Régimen de concesión</span>
+                                                    <span th:case="5">Paso 6 — Tras la concesión</span>
+                                                    <span th:case="6">Paso 7 — Justificación</span>
+                                                    <span th:case="7">Paso 8 — Advertencias críticas</span>
+                                                    <span th:case="*" th:text="'Paso ' + (${iterStat.index + 1})"></span>
+                                                </span>
+                                            </div>
+                                            <div class="guia-paso-text" th:text="${#strings.trim(paso)}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Aviso legal -->
                                 <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
                                      class="alert alert-warning small mt-4 mb-0">
-                                    ⚠️ Esta guía es orientativa y fue generada por IA. Verifica siempre los
-                                    requisitos oficiales en la convocatoria antes de presentar tu solicitud.
+                                    ⚠️ Esta guía es orientativa y fue generada por IA basándose en la Ley 38/2003 General de Subvenciones.
+                                    Verifica siempre los requisitos oficiales en las <strong>bases reguladoras</strong> de la convocatoria
+                                    antes de presentar tu solicitud.
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <a th:if="${rec.urlOficial}"
-                                   th:href="${rec.urlOficial}"
-                                   target="_blank" rel="noopener noreferrer"
-                                   class="btn btn-primary btn-sm">
+                                <a th:if="${rec.urlOficial}" th:href="${rec.urlOficial}"
+                                   target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
                                     Ir a la convocatoria oficial ↗
                                 </a>
                                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
@@ -295,23 +507,112 @@
                     </div>
                 </div>
                 <!-- /modal -->
-
             </div>
         </div>
-        <!-- /tarjetas -->
-
-    </div><!-- fin resultados -->
-
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/javascript/recomendaciones-stream.js}"></script>
 <script>
+/* Mapeo de pasos para la guía visual */
+var GUIA_PASOS_META = [
+    { icon: '📄', label: 'Requisitos legales',        color: '#dc3545' },
+    { icon: '📎', label: 'Documentación obligatoria', color: '#fd7e14' },
+    { icon: '💻', label: 'Acceso y presentación',     color: '#0d6efd' },
+    { icon: '📅', label: 'Plazos y calendario',       color: '#6f42c1' },
+    { icon: '⚖️', label: 'Régimen de concesión',     color: '#20c997' },
+    { icon: '✅', label: 'Tras la concesión',         color: '#0dcaf0' },
+    { icon: '🧾', label: 'Justificación',             color: '#198754' },
+    { icon: '⚠️', label: 'Advertencias críticas',    color: '#ffc107' }
+];
+
 function abrirGuia(modalId) {
     var el = document.getElementById(modalId);
     if (!el) { console.error('Modal no encontrado:', modalId); return; }
     var modal = new bootstrap.Modal(el);
     modal.show();
+}
+
+/**
+ * Abre un modal dinámico con la guía de solicitud (para tarjetas SSE streaming).
+ * @param {object} rec - Objeto de recomendación con campos titulo, tipo, sector, guia, urlOficial
+ */
+function abrirGuiaStream(rec) {
+    // Eliminar modal anterior si existe
+    var prev = document.getElementById('modalGuiaStream');
+    if (prev) prev.remove();
+
+    var pasos = (rec.guia || '').split('|').map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+
+    // ── Stepper horizontal ──
+    var stepperHtml = '<div class="card border-0 bg-white shadow-sm mb-4"><div class="card-body py-3">' +
+        '<div class="small text-muted text-center mb-2 fw-semibold">📍 Flujo del proceso de solicitud</div>' +
+        '<div class="stepper-flow" role="list">';
+    var stepperIcons = ['🏛️','📄','📎','💻','📅','⚖️','✅','⚠️'];
+    var stepperLabels = ['Portal convocatoria','Requisitos legales','Documentación','Sede electrónica','Plazos','Régimen concesión','Post-concesión','Advertencias'];
+    for (var si = 0; si < stepperIcons.length; si++) {
+        var cls = si < 2 ? 'completed' : (si === 2 ? 'active' : '');
+        stepperHtml += '<div class="stepper-step ' + cls + '"><div class="stepper-icon">' + stepperIcons[si] + '</div><div class="stepper-label">' + stepperLabels[si] + '</div></div>';
+        if (si < stepperIcons.length - 1) {
+            var connCls = si < 2 ? 'completed' : (si === 2 ? 'active' : '');
+            stepperHtml += '<div class="stepper-connector ' + connCls + '"></div>';
+        }
+    }
+    stepperHtml += '</div></div></div>';
+
+    // ── Timeline vertical ──
+    var timelineHtml = '';
+    if (pasos.length > 0) {
+        timelineHtml = '<div class="guia-timeline">';
+        for (var i = 0; i < pasos.length; i++) {
+            var meta = GUIA_PASOS_META[i] || { icon: '📌', label: 'Paso ' + (i+1), color: '#6c757d' };
+            timelineHtml += '<div class="guia-paso" data-step="' + (i+1) + '">' +
+                '<div class="guia-paso-icon">' + meta.icon + '</div>' +
+                '<div class="guia-paso-content">' +
+                '<div class="guia-paso-label">' + meta.label + '</div>' +
+                '<div class="guia-paso-text">' + escapeHtmlGuia(pasos[i]) + '</div>' +
+                '</div></div>';
+        }
+        timelineHtml += '</div>';
+    } else {
+        timelineHtml = '<div class="alert alert-info">Esta recomendación no tiene guía generada todavía.</div>';
+    }
+
+    var tipo = rec.tipo ? '<span class="badge bg-primary me-1">' + escapeHtmlGuia(rec.tipo) + '</span>' : '';
+    var sector = rec.sector ? '<span class="badge bg-secondary">' + escapeHtmlGuia(rec.sector) + '</span>' : '';
+    var urlBtn = rec.urlOficial ? '<a href="' + escapeHtmlGuia(rec.urlOficial) + '" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">Ir a la convocatoria oficial ↗</a>' : '';
+
+    var modalHtml = '<div id="modalGuiaStream" class="modal fade" tabindex="-1">' +
+        '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
+        '<div class="modal-header bg-success text-white">' +
+        '<h5 class="modal-title">📋 Guía de solicitud — Flujo completo</h5>' +
+        '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>' +
+        '<div class="modal-body">' +
+        '<div class="alert alert-light border mb-3"><div class="small text-muted mb-1">Convocatoria</div>' +
+        '<strong>' + escapeHtmlGuia(rec.titulo || 'Sin título') + '</strong>' +
+        '<div class="mt-1">' + tipo + sector + '</div></div>' +
+        stepperHtml +
+        timelineHtml +
+        (pasos.length > 0 ? '<div class="alert alert-warning small mt-4 mb-0">⚠️ Esta guía es orientativa y fue generada por IA basándose en la Ley 38/2003 General de Subvenciones. Verifica siempre los requisitos oficiales en las <strong>bases reguladoras</strong> de la convocatoria.</div>' : '') +
+        '</div>' +
+        '<div class="modal-footer">' + urlBtn +
+        '<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button></div>' +
+        '</div></div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    var modalEl = document.getElementById('modalGuiaStream');
+    modalEl.addEventListener('hidden.bs.modal', function () { modalEl.remove(); });
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+function escapeHtmlGuia(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 </script>
 <footer th:replace="~{fragments/footer :: footer}"></footer>

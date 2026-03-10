@@ -216,7 +216,7 @@ logging.level.com.syntia.mvp=DEBUG
 # OpenAI - Motor de matching
 openai.api-key=${OPENAI_API_KEY:}
 openai.model=gpt-4.1
-openai.max-tokens=350
+openai.max-tokens=500
 openai.temperature=0.1
 ```
 

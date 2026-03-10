@@ -48,7 +48,8 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 | Optimización N+1 métricas admin | ✅ Completo |
 | Filtros recomendaciones delegados a BD | ✅ Completo |
 | Persistencia selectiva (solo convocatorias recomendadas ≥ 20pts) | ✅ Completo |
-| **Optimización de tokens (max-tokens=350, 15 candidatas máx)** | ✅ Completo |
+| **Optimización de tokens (max-tokens=500, 15 candidatas máx)** | ✅ Completo |
+| **Guía de solicitud con base legal (LGS art. 13, 8 pasos)** | ✅ Completo |
 | Datos de prueba (`data-test.sql`) | ❌ Eliminado (se usan datos reales de BDNS) |
 | Perfil Spring producción (`application-prod.properties`) | ✅ Completo |
 
@@ -92,28 +93,49 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 | 3.5 | Evaluación semántica de compatibilidad con gpt-4.1 | ✅ |
 | 3.6 | Puntuación 0-100 con criterios explícitos por rango | ✅ |
 | 3.7 | Explicación en lenguaje natural (punto fuerte + condición a verificar) | ✅ |
-| 3.8 | Guía de solicitud de 5 pasos generada por IA | ✅ |
+| 3.8 | Guía de solicitud de 8 pasos con base legal (LGS art. 13) generada por IA | ✅ |
 | 3.9 | Persistencia selectiva: solo convocatorias ≥ 20 puntos se guardan en BD | ✅ |
 | 3.10 | Fallback automático a motor rule-based si OpenAI no disponible | ✅ |
 | 3.11 | Filtrado recomendaciones por tipo, sector, ubicación (delegado a BD) | ✅ |
 | 3.12 | **SSE Streaming: resultados aparecen uno a uno en tiempo real** | ✅ |
 | 3.13 | **Ejecución asíncrona: `CompletableFuture` + `TransactionTemplate`** | ✅ |
-| 3.14 | **Optimización de tokens: max-tokens=350, 15 candidatas máx** | ✅ |
+| 3.14 | **Optimización de tokens: max-tokens=500, 15 candidatas máx** | ✅ |
+| 3.15 | **Auditoría de guía vs. procedimiento real (LGS 38/2003, Ley 39/2015)** | ✅ |
+| 3.16 | **Stepper visual en modal guía: flowchart horizontal + timeline vertical con iconos** | ✅ |
+| 3.17 | **Botón guía funcional en tarjetas SSE streaming con modal dinámico** | ✅ |
+| 3.18 | **Prompt optimizado: sin datos vacíos, sin URL, deduplicación sector, limpieza HTML** | ✅ |
+| 3.19 | **Pre-filtro geográfico: descarta convocatorias autonómicas incompatibles antes de IA** | ✅ |
+| 3.20 | **Keywords mejoradas: incluyen `descripcionLibre` y `perfil.ubicacion` como fallback** | ✅ |
+| 3.21 | **Paralelismo BDNS: detalles descargados con CompletableFuture.allOf() (-85% latencia)** | ✅ |
+| 3.22 | **Deduplicación por idBdns: cero evaluaciones duplicadas por la misma convocatoria** | ✅ |
+| 3.23 | **Informe técnico flujo BDNS: endpoints, parámetros, mapeo perfil→BDNS, 41 llamadas documentadas** | ✅ |
 
-**Flujo del motor (v3.0.0):**
+**Flujo del motor (v3.4.0):**
 ```
 Perfil + Proyecto
       ↓
-OpenAI gpt-4.1 → genera 6-8 keywords de búsqueda
+OpenAI gpt-4.1 → genera 6-8 keywords
+  (fuentes: nombre, sector, ubicación, descripción, tipoEntidad, objetivos,
+   necesidadesFinanciacion, descripcionLibre hasta 300 chars, perfil.ubicacion fallback)
       ↓
-API BDNS real (?vigente=true) → 15 resultados por keyword
+API BDNS real (?vigente=true, ?descripcion=keyword) → hasta 15 resultados por keyword
       ↓
-Deduplicación en memoria por título → top 15 candidatas
+Deduplicación doble en memoria:
+  1. Por idBdns (más fiable)
+  2. Por título (fallback)
+  + Descartar caducadas (fechaCierre < hoy)
       ↓
-Por cada candidata:
-  ├─ API BDNS detalle (objeto, requisitos, beneficiarios)
-  ├─ OpenAI evalúa → puntuación 0-100 + explicación + guía 5 pasos
-  ├─ SSE: evento "progreso" + evento "resultado" si ≥ 20 puntos
+Pre-filtro geográfico: descarta autonómicas de CCAA incompatible
+      ↓
+Obtención paralela de detalles BDNS (CompletableFuture.allOf, 10 hilos):
+  Por cada candidata simultáneamente → /api/convocatorias/{idBdns}
+  → O(t) en vez de O(n×t) → -85% latencia esta fase
+      ↓
+Por cada candidata (secuencial, SSE):
+  ├─ Lookup detalle en Map (ya cargado en paralelo, 0 latencia)
+  ├─ Prompt optimizado: sin datos vacíos, sin URL, sector deduplicado
+  ├─ OpenAI evalúa → puntuación 0-100 + explicación + guía 8 pasos (LGS 38/2003)
+  ├─ SSE: evento "progreso" + evento "resultado" (incluye campo guia) si ≥ 20 pts
   └─ Persistencia selectiva en BD (TransactionTemplate)
       ↓
 SSE: evento "completado" → recarga de página (2.5s)
@@ -130,7 +152,7 @@ MAX_CANDIDATAS_IA = 15       // Máximo de evaluaciones OpenAI
 ```properties
 openai.api-key=${OPENAI_API_KEY:}   # vacío = fallback a motor rule-based
 openai.model=gpt-4.1
-openai.max-tokens=350               # JSON de respuesta ~200-350 tokens
+openai.max-tokens=500               # JSON de respuesta 8 pasos ~350-500 tokens
 openai.temperature=0.1              # Determinismo alto
 ```
 

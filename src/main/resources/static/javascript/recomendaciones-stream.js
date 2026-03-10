@@ -171,6 +171,7 @@
 
     /**
      * Crea el HTML de una tarjeta de recomendación para inserción dinámica.
+     * Incluye botón de guía de solicitud con flujo visual.
      */
     function crearTarjetaRecomendacion(rec) {
         var claseP = rec.puntuacion >= 70 ? 'puntuacion-alta' :
@@ -185,8 +186,19 @@
         var ubicacion = rec.ubicacion ? '<span class="badge bg-info text-dark me-1">' + escapeHtml(rec.ubicacion) + '</span>' : '';
         var fuente = rec.fuente ? '<span class="badge bg-light text-dark border">' + escapeHtml(rec.fuente) + '</span>' : '';
         var urlBtn = rec.urlOficial
-            ? '<a href="' + escapeHtml(rec.urlOficial) + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm mt-2">Ver convocatoria oficial ↗</a>'
+            ? '<a href="' + escapeHtml(rec.urlOficial) + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">Ver convocatoria oficial ↗</a>'
             : '';
+
+        // Guardar datos de la recomendación en un atributo data para el botón de guía
+        var recId = 'streamRec_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
+
+        // Botón de guía de solicitud
+        var guiaBtn = '<button type="button" class="btn btn-success btn-sm" ' +
+            'onclick="abrirGuiaStream(window[\'' + recId + '\'])">' +
+            '📋 Ver guía de solicitud</button>';
+
+        // Guardar el objeto rec en una variable global temporal
+        window[recId] = rec;
 
         return '<div class="col-12">' +
             '<div class="card shadow-sm border-0 border-start border-3 border-success">' +
@@ -196,7 +208,7 @@
             '<div class="mb-2">' + tipo + sector + ubicacion + fuente +
             '<span class="badge bg-success ms-1">🤖 IA</span></div>' +
             '<p class="text-muted small mb-1">' + explicacion + '</p>' +
-            urlBtn +
+            '<div class="d-flex flex-wrap gap-2 mt-2">' + guiaBtn + urlBtn + '</div>' +
             '</div>' +
             '<div class="text-center ms-3" style="min-width:70px;">' +
             '<div class="fs-3 fw-bold ' + claseP + '">' + rec.puntuacion + '</div>' +

@@ -18,6 +18,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,27 +100,50 @@ public class MotorMatchingService {
                      "¿Está accesible la API de infosubvenciones.es?", keywords);
         }
 
-        // 4. Limitar a MAX_CANDIDATAS_IA para no hacer demasiadas llamadas a OpenAI
-        List<ConvocatoriaDTO> aEvaluar = candidatasUnicas.values().stream()
-                .limit(MAX_CANDIDATAS_IA)
-                .toList();
+        // 4. Pre-filtro geográfico + limitar a MAX_CANDIDATAS_IA
+        String ubicacionUsuario = proyecto.getUbicacion();
+        if ((ubicacionUsuario == null || ubicacionUsuario.isBlank()) && perfil != null) {
+            ubicacionUsuario = perfil.getUbicacion();
+        }
+        List<ConvocatoriaDTO> aEvaluar;
+        if (ubicacionUsuario != null && !ubicacionUsuario.isBlank()) {
+            final String ubiFinal = ubicacionUsuario.toLowerCase().trim();
+            aEvaluar = candidatasUnicas.values().stream()
+                    .filter(dto -> {
+                        String ubiConv = dto.getUbicacion();
+                        if (ubiConv == null || ubiConv.isBlank() || "Nacional".equalsIgnoreCase(ubiConv)) {
+                            return true;
+                        }
+                        return ubiConv.toLowerCase().contains(ubiFinal)
+                                || ubiFinal.contains(ubiConv.toLowerCase());
+                    })
+                    .limit(MAX_CANDIDATAS_IA)
+                    .toList();
+            log.info("Pre-filtro geográfico: {} de {} candidatas pasan (ubicación: {})",
+                    aEvaluar.size(), candidatasUnicas.size(), ubiFinal);
+        } else {
+            aEvaluar = candidatasUnicas.values().stream()
+                    .limit(MAX_CANDIDATAS_IA)
+                    .toList();
+        }
 
         // 5. Evaluar cada candidata con OpenAI y persistir solo las que superen el umbral
+        // Primero obtener todos los detalles en paralelo para reducir latencia
+        Map<String, String> detallesPorId = obtenerDetallesEnParalelo(aEvaluar);
+
         List<Recomendacion> recomendaciones = new ArrayList<>();
         int fallosOpenAi = 0;
         int descartadasPorUmbral = 0;
         for (ConvocatoriaDTO dto : aEvaluar) {
             try {
-                // Obtener detalle completo de la convocatoria desde la API BDNS
-                // (objeto, beneficiarios, requisitos, bases reguladoras, etc.)
-                String detalleTexto = null;
-                if (dto.getIdBdns() != null) {
-                    detalleTexto = bdnsClientService.obtenerDetalleTexto(dto.getIdBdns());
-                    if (detalleTexto != null) {
-                        log.debug("Detalle BDNS obtenido para '{}': {} chars", dto.getTitulo(), detalleTexto.length());
-                    } else {
-                        log.debug("Detalle BDNS no disponible para '{}', usando solo título", dto.getTitulo());
-                    }
+                // Obtener detalle completo (ya precargado en paralelo)
+                String detalleTexto = dto.getIdBdns() != null
+                        ? detallesPorId.get(dto.getIdBdns())
+                        : null;
+                if (detalleTexto != null) {
+                    log.debug("Detalle BDNS disponible para '{}': {} chars", dto.getTitulo(), detalleTexto.length());
+                } else {
+                    log.debug("Detalle BDNS no disponible para '{}', usando solo título", dto.getTitulo());
                 }
 
                 // Construir entidad temporal (sin ID) para pasarla a OpenAI
@@ -215,18 +242,25 @@ public class MotorMatchingService {
 
     /**
      * Busca en la API BDNS con cada keyword y devuelve un mapa título→DTO deduplicado.
+     * Deduplicación doble: primero por idBdns (más fiable), luego por título como fallback.
      */
     private Map<String, ConvocatoriaDTO> buscarEnBdns(List<String> keywords) {
         Map<String, ConvocatoriaDTO> resultado = new LinkedHashMap<>();
+        java.util.Set<String> idsBdnsVistos = new java.util.HashSet<>();
         LocalDate hoy = LocalDate.now();
         for (String kw : keywords) {
             try {
                 List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTexto(kw, 0, RESULTADOS_POR_KEYWORD);
                 for (ConvocatoriaDTO dto : encontradas) {
                     if (dto.getTitulo() == null) continue;
+                    // Deduplicar por idBdns primero (más fiable que título)
+                    if (dto.getIdBdns() != null && !dto.getIdBdns().isBlank()) {
+                        if (idsBdnsVistos.contains(dto.getIdBdns())) continue;
+                        idsBdnsVistos.add(dto.getIdBdns());
+                    }
+                    // Deduplicar por título como capa adicional
                     if (resultado.containsKey(dto.getTitulo())) continue;
                     // Descartar SOLO las que tienen fecha de cierre conocida y ya pasó
-                    // (null = sin plazo definido = tratar como abierta)
                     if (dto.getFechaCierre() != null && dto.getFechaCierre().isBefore(hoy)) {
                         log.debug("Descartada por caducada: '{}' cierre={}", dto.getTitulo(), dto.getFechaCierre());
                         continue;
@@ -239,6 +273,40 @@ public class MotorMatchingService {
             }
         }
         return resultado;
+    }
+
+    /**
+     * Obtiene en paralelo el detalle BDNS de todas las candidatas.
+     * Reduce la latencia de O(n×t) a O(t) donde t es el tiempo de una sola llamada.
+     *
+     * @param candidatas lista de DTOs a enriquecer con detalle
+     * @return mapa idBdns → texto de detalle (null si no disponible)
+     */
+    private Map<String, String> obtenerDetallesEnParalelo(List<ConvocatoriaDTO> candidatas) {
+        Map<String, String> detalles = new ConcurrentHashMap<>();
+        if (candidatas.isEmpty()) return detalles;
+        int nHilos = Math.min(candidatas.size(), 10);
+        // En Java 17 ExecutorService no implementa AutoCloseable; el finally garantiza el shutdown
+        @SuppressWarnings("resource")
+        ExecutorService executor = Executors.newFixedThreadPool(nHilos);
+        try {
+            List<CompletableFuture<Void>> futuros = candidatas.stream()
+                    .filter(dto -> dto.getIdBdns() != null && !dto.getIdBdns().isBlank())
+                    .map(dto -> CompletableFuture.runAsync(() -> {
+                        String texto = bdnsClientService.obtenerDetalleTexto(dto.getIdBdns());
+                        if (texto != null && !texto.isBlank()) {
+                            detalles.put(dto.getIdBdns(), texto);
+                        }
+                    }, executor))
+                    .toList();
+            CompletableFuture.allOf(futuros.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            log.warn("Error en obtención paralela de detalles BDNS: {}", e.getMessage());
+        } finally {
+            executor.shutdown(); // siempre liberar el pool
+        }
+        log.info("Detalles BDNS obtenidos en paralelo: {}/{} con contenido", detalles.size(), candidatas.size());
+        return detalles;
     }
 
     // ── Persistencia selectiva ────────────────────────────────────────────────
@@ -331,14 +399,45 @@ public class MotorMatchingService {
                 return;
             }
 
-            // 5. Limitar candidatas
-            List<ConvocatoriaDTO> aEvaluar = candidatasUnicas.values().stream()
-                    .limit(MAX_CANDIDATAS_IA)
-                    .toList();
+            // 5. Pre-filtro geográfico (ahorra evaluaciones IA innecesarias)
+            String ubicacionUsuario = proyecto.getUbicacion();
+            if ((ubicacionUsuario == null || ubicacionUsuario.isBlank()) && perfil != null) {
+                ubicacionUsuario = perfil.getUbicacion();
+            }
+            List<ConvocatoriaDTO> candidatasFiltradas;
+            if (ubicacionUsuario != null && !ubicacionUsuario.isBlank()) {
+                final String ubiFinal = ubicacionUsuario.toLowerCase().trim();
+                candidatasFiltradas = candidatasUnicas.values().stream()
+                        .filter(dto -> {
+                            String ubiConv = dto.getUbicacion();
+                            if (ubiConv == null || ubiConv.isBlank() || "Nacional".equalsIgnoreCase(ubiConv)) {
+                                return true; // Nacionales siempre pasan
+                            }
+                            // Si la convocatoria es autonómica, verificar compatibilidad
+                            return ubiConv.toLowerCase().contains(ubiFinal)
+                                    || ubiFinal.contains(ubiConv.toLowerCase());
+                        })
+                        .limit(MAX_CANDIDATAS_IA)
+                        .toList();
+                int descartadasGeo = candidatasUnicas.size() - candidatasFiltradas.size();
+                if (descartadasGeo > 0) {
+                    log.info("SSE: Pre-filtro geográfico descartó {} candidatas (ubicación: {})",
+                            descartadasGeo, ubiFinal);
+                }
+            } else {
+                candidatasFiltradas = candidatasUnicas.values().stream()
+                        .limit(MAX_CANDIDATAS_IA)
+                        .toList();
+            }
+            List<ConvocatoriaDTO> aEvaluar = candidatasFiltradas;
             enviarEvento(emitter, "estado",
                     "🤖 Evaluando " + aEvaluar.size() + " convocatorias con IA...");
 
-            // 6. Evaluar cada candidata, emitiendo resultados parciales
+            // 6. Obtener detalles BDNS en PARALELO (antes del bucle de evaluación IA)
+            enviarEvento(emitter, "estado", "📄 Descargando detalles de convocatorias en paralelo...");
+            Map<String, String> detallesPorId = obtenerDetallesEnParalelo(aEvaluar);
+
+            // 7. Evaluar cada candidata, emitiendo resultados parciales
             List<Recomendacion> recomendaciones = new ArrayList<>();
             int procesadas = 0;
             int fallosOpenAi = 0;
@@ -353,11 +452,10 @@ public class MotorMatchingService {
                 ));
 
                 try {
-                    // Obtener detalle de la convocatoria
-                    String detalleTexto = null;
-                    if (dto.getIdBdns() != null) {
-                        detalleTexto = bdnsClientService.obtenerDetalleTexto(dto.getIdBdns());
-                    }
+                    // Obtener detalle (ya cargado en paralelo, solo lookup en map)
+                    String detalleTexto = dto.getIdBdns() != null
+                            ? detallesPorId.get(dto.getIdBdns())
+                            : null;
 
                     // Evaluar con OpenAI
                     Convocatoria temporal = dtoAEntidad(dto);
@@ -387,17 +485,18 @@ public class MotorMatchingService {
                         recomendaciones.add(rec);
 
                         // Enviar resultado parcial al navegador inmediatamente
-                        enviarEvento(emitter, "resultado", Map.of(
-                                "titulo", dto.getTitulo() != null ? dto.getTitulo() : "Sin título",
-                                "puntuacion", resultado.puntuacion(),
-                                "explicacion", resultado.explicacion() != null ? resultado.explicacion() : "",
-                                "tipo", dto.getTipo() != null ? dto.getTipo() : "",
-                                "sector", dto.getSector() != null ? dto.getSector() : "",
-                                "ubicacion", dto.getUbicacion() != null ? dto.getUbicacion() : "",
-                                "urlOficial", dto.getUrlOficial() != null ? dto.getUrlOficial() : "",
-                                "fuente", dto.getFuente() != null ? dto.getFuente() : "",
-                                "totalEncontradas", recomendaciones.size()
-                        ));
+                        Map<String, Object> resultadoEvento = new LinkedHashMap<>();
+                        resultadoEvento.put("titulo", dto.getTitulo() != null ? dto.getTitulo() : "Sin título");
+                        resultadoEvento.put("puntuacion", resultado.puntuacion());
+                        resultadoEvento.put("explicacion", resultado.explicacion() != null ? resultado.explicacion() : "");
+                        resultadoEvento.put("tipo", dto.getTipo() != null ? dto.getTipo() : "");
+                        resultadoEvento.put("sector", dto.getSector() != null ? dto.getSector() : "");
+                        resultadoEvento.put("ubicacion", dto.getUbicacion() != null ? dto.getUbicacion() : "");
+                        resultadoEvento.put("urlOficial", dto.getUrlOficial() != null ? dto.getUrlOficial() : "");
+                        resultadoEvento.put("fuente", dto.getFuente() != null ? dto.getFuente() : "");
+                        resultadoEvento.put("guia", resultado.guia() != null ? resultado.guia() : "");
+                        resultadoEvento.put("totalEncontradas", recomendaciones.size());
+                        enviarEvento(emitter, "resultado", resultadoEvento);
                         log.info("SSE resultado: puntuacion={} titulo='{}'",
                                 resultado.puntuacion(), dto.getTitulo());
                     } else {

@@ -106,7 +106,7 @@ logging.level.com.syntia.mvp=DEBUG
 # OpenAI - Motor de matching
 openai.api-key=${OPENAI_API_KEY:}
 openai.model=gpt-4.1
-openai.max-tokens=350
+openai.max-tokens=500
 openai.temperature=0.1
 ```
 
@@ -197,7 +197,7 @@ com.syntia.mvp
 
 ```
 src/main/resources/
-├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, OpenAI (max-tokens=350)
+├── application.properties            ✅ PostgreSQL, JPA, Thymeleaf, JWT, OpenAI (max-tokens=500)
 ├── application-prod.properties       ✅ Perfil producción — todas las props por variable de entorno
 ├── static/
 │   ├── bootstrap/                    ✅ Bootstrap 5 CSS

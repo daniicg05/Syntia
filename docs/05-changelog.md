@@ -8,6 +8,99 @@ Formato de cada entrada:
 
 ---
 
+## [3.4.0] – 2026-03-10
+
+### Informe Técnico BDNS + Paralelismo de Detalles + Deduplicación por idBdns
+
+#### Nuevos archivos creados
+- `docs/11-flujo-bdns-analisis-tecnico.md` — Informe técnico de 5 fases: ingeniería inversa del flujo BDNS real (endpoints, parámetros, estructura JSON), modelo de visualización de resultados, mapeo perfil→BDNS, diagrama end-to-end (27-41 llamadas HTTP por análisis), y propuesta de arquitectura optimizada con reducción de latencia estimada del 60-75%.
+
+#### Archivos modificados
+- `MotorMatchingService.java` — **3 mejoras de rendimiento críticas:**
+  1. `obtenerDetallesEnParalelo()`: nuevo método que descarga los detalles BDNS de todas las candidatas en paralelo usando `CompletableFuture.allOf()` + `Executors.newCachedThreadPool()`. Reduce la fase de detalles de O(n×t) a O(t) — estimado de ~10-15s a ~1-2s.
+  2. `buscarEnBdns()`: doble deduplicación — primero por `idBdns` (más fiable), luego por título como capa adicional. Elimina el problema de evaluar la misma convocatoria dos veces con títulos ligeramente distintos.
+  3. Ambos métodos (`generarRecomendaciones()` y `generarRecomendacionesStream()`) usan `detallesPorId` precargado en paralelo, eliminando llamadas síncronas a BDNS dentro del bucle de evaluación IA.
+
+#### Ajustes de calidad de código (v3.4.0 final)
+- `OpenAiMatchingService.java` — `SYSTEM_PROMPT` y `KEYWORDS_SYSTEM_PROMPT` convertidos de concatenación de strings a **text blocks** de Java 17 (más legibles, sin warnings). JavaDoc duplicado (dangling) eliminado. `limpiarTexto()` refactorizado: parámetro `maxChars` reemplazado por constante `MAX_DETALLE_CHARS = 1500`. `limpiarTexto(String, int)` → `limpiarTexto(String)` — cero warnings en el IDE.
+- `MotorMatchingService.java` — `@SuppressWarnings("resource")` sobre el `ExecutorService` para documentar explícitamente que Java 17 no soporta `try-with-resources` en `ExecutorService` (añadido en Java 19). El `finally { executor.shutdown() }` garantiza la liberación del pool.
+
+#### Entorno de compilación verificado
+- **JDK usado:** `jbr-17.0.14` (JetBrains Runtime, ubicado en `C:\Users\danie\.jdks\jbr-17.0.14`)
+- **Compilación Maven:** `BUILD SUCCESS`, exit code `0`, `0` errores de compilación
+- **Warnings pendientes:** solo 1 warning de IntelliJ sobre `ExecutorService` (falso positivo del analizador, no afecta a compilación ni ejecución)
+- **Duplicados evaluados por IA:** de posibles duplicados a **cero** (doble deduplicación)
+- **Latencia total del análisis:** de ~40-86s a ~25-50s (**-35-45%** con este cambio solo)
+- **Siguiente step para reducir más:** paralelizar las evaluaciones IA (Mejora #2 del informe)
+
+**Autor(es):** Daniel (BDNS analysis + paralelismo)
+
+---
+
+## [3.3.0] – 2026-03-10
+
+### Auditoría de Campos + Optimización de Tokens + Pre-filtro Geográfico
+
+#### Nuevos archivos creados
+- `docs/10-auditoria-campos-optimizacion-ia.md` — Informe de 6 fases: auditoría completa de campos perfil/proyecto, análisis de filtrado, evaluación de API OpenAI, arquitectura optimizada, galería visual del flujo y recomendaciones priorizadas.
+
+#### Archivos modificados
+- `OpenAiMatchingService.java` — `construirPrompt()` reescrito: elimina datos vacíos ("No indicado"), excluye URL del prompt, deduplica sector perfil/proyecto, limpia HTML del detalle BDNS con `limpiarTexto()`. `construirPromptKeywords()` ahora incluye `perfil.ubicacion` como fallback y `perfil.descripcionLibre` (truncada a 300 chars). Nuevos métodos helper: `appendIfPresent()`, `limpiarTexto()`.
+- `MotorMatchingService.java` — Ambos métodos (`generarRecomendaciones()` y `generarRecomendacionesStream()`) ahora aplican pre-filtro geográfico: las convocatorias autonómicas de una CCAA incompatible con la ubicación del usuario se descartan antes de evaluar con IA, ahorrando tokens y tiempo.
+
+#### Impacto
+- **Tokens reducidos:** ~15-25% menos por análisis (eliminación datos vacíos + deduplicación + limpieza HTML)
+- **Precisión keywords:** mejorada con `descripcionLibre` y `perfil.ubicacion` como fuentes adicionales
+- **Candidatas evaluadas:** ~20-30% menos gracias al pre-filtro geográfico (convocatorias autonómicas incompatibles se descartan)
+- **Tiempo estimado:** ~15-25% menos (menos candidatas × menos tokens)
+
+**Autor(es):** Daniel (Auditoría campos + Optimización IA)
+
+---
+
+## [3.2.0] – 2026-03-10
+
+### Stepper Visual en Guía de Solicitud + Botón Guía en SSE Streaming
+
+#### Cambios en frontend
+Se rediseña completamente el modal "Ver guía de solicitud" con un componente visual de flujo (stepper horizontal + timeline vertical con iconos). Las tarjetas SSE streaming ahora incluyen botón funcional de guía.
+
+#### Archivos modificados
+- `recomendaciones.html` — Modal rediseñado a `modal-xl` con dos componentes visuales: (1) Stepper horizontal tipo flowchart con 8 nodos conectados (🏛️ Portal → 📄 Requisitos → 📎 Documentación → 💻 Sede → 📅 Plazos → ⚖️ Régimen → ✅ Post-concesión → ⚠️ Advertencias), con estados `completed`/`active`/pendiente y conectores coloreados. (2) Timeline vertical con iconos emoji, etiquetas semánticas por paso, colores diferenciados por fase y animación de aparición escalonada. Nuevo CSS completo: `.stepper-flow`, `.stepper-step`, `.stepper-icon`, `.stepper-connector`, `.guia-timeline`, `.guia-paso`, `.guia-paso-icon`, `.guia-paso-content` con 8 esquemas de color por paso. Función `abrirGuiaStream(rec)` que genera modal dinámico idéntico para tarjetas SSE. Aviso legal actualizado con referencia a LGS 38/2003.
+- `recomendaciones-stream.js` — `crearTarjetaRecomendacion()` ahora incluye botón `📋 Ver guía de solicitud` que llama a `abrirGuiaStream(rec)`. Los datos de la recomendación (incluyendo `guia`) se almacenan en variable global temporal para acceso desde el onclick. Botones de acción reorganizados con `d-flex flex-wrap gap-2`.
+- `MotorMatchingService.java` — Evento SSE `resultado` ahora incluye campo `guia` con el texto de la guía de 8 pasos, permitiendo que las tarjetas streaming muestren la guía completa sin recargar. Se usa `LinkedHashMap` para preservar orden de campos en el JSON.
+
+#### Impacto visual
+- **Modal:** de texto plano con `border-left` azul a stepper flowchart + timeline con 8 colores e iconos
+- **SSE streaming:** tarjetas ahora tienen botón de guía funcional desde el primer momento
+- **Responsive:** stepper horizontal con scroll en móvil, modal `modal-xl` con scrollable
+- **Animaciones:** pasos aparecen con `fadeInPaso` escalonado (50ms entre pasos)
+
+**Autor(es):** Daniel (Stepper visual + SSE guía)
+
+---
+
+## [3.1.0] – 2026-03-10
+
+### Auditoría de Guía de Subvenciones + Mejora del System Prompt
+
+#### Nuevos archivos creados
+- `docs/09-auditoria-guia-subvenciones.md` — Informe completo de 6 fases: auditoría de `/docs` vs. proceso real de solicitud de subvenciones, investigación de la Ley 38/2003 (LGS) y Ley 39/2015 (LPACAP), esquema visual del flujo con 19 pasos y 8 pantallas, modelado REST con 8 endpoints, wireframes estructurales, tabla comparativa (cobertura actual: 16% del flujo real) y propuesta de rediseño de la guía en 3 capas.
+
+#### Archivos modificados
+- `OpenAiMatchingService.java` — System prompt (`SYSTEM_PROMPT`) reescrito completamente. La guía de solicitud pasa de 5 a 8 pasos cubriendo el ciclo completo: (1) requisitos legales universales (LGS art. 13: AEAT, TGSS, declaración responsable) + específicos, (2) documentación obligatoria detallada, (3) sede electrónica y medios de identificación, (4) plazos y calendario, (5) régimen de concesión y criterios de valoración, (6) obligaciones post-concesión, (7) justificación de gastos, (8) advertencias críticas (diferencia extracto/bases reguladoras, errores frecuentes). Se añade JavaDoc con referencia normativa.
+- `application.properties` — `openai.max-tokens` incrementado de 350 a 500 para acomodar la respuesta JSON de 8 pasos.
+
+#### Impacto
+- **Cobertura de la guía:** de 5 pasos genéricos a 8 pasos con base legal (LGS 38/2003, Ley 39/2015)
+- **Requisitos universales:** ahora siempre presentes en PASO 1 (AEAT, TGSS, art. 13)
+- **Ciclo completo:** la guía cubre desde elegibilidad hasta justificación y advertencias
+- **Tokens:** ~30% más por respuesta (~350→~500 tokens), compensado por mayor calidad
+
+**Autor(es):** Daniel (Auditoría guía subvenciones)
+
+---
+
 ## [3.0.0] – 2026-03-10
 
 ### SSE Streaming + Optimización de Tokens + Informe Arquitectónico

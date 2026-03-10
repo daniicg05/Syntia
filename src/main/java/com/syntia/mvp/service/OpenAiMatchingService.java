@@ -17,56 +17,83 @@ import java.util.Optional;
 public class OpenAiMatchingService {
 
     /**
-     * Prompt de evaluación: criterios explícitos para que gpt-4.1 puntúe con precisión.
-     * - 90-100: sector, tipo entidad y ubicación coinciden plenamente, requisitos claramente cumplidos.
-     * - 70-89: alta compatibilidad pero con algún matiz menor (sector próximo, ámbito ampliable).
-     * - 50-69: compatibilidad media, el proyecto podría adaptarse pero hay diferencias relevantes.
-     * - 30-49: compatibilidad baja, solo coincidencias parciales o genéricas.
+     * System prompt de evaluación: criterios de puntuación + guía de solicitud de 8 pasos.
+     * <p>
+     * Escala de puntuación:
+     * - 90-100: sector, tipo entidad y ubicación coinciden plenamente.
+     * - 70-89: alta compatibilidad con algún matiz menor.
+     * - 50-69: compatibilidad media, hay diferencias relevantes.
+     * - 30-49: compatibilidad baja, solo coincidencias parciales.
      * - 0-29: incompatible o sin datos suficientes para evaluar.
+     * <p>
+     * Mejora v3.1.0+: La guía incluye SIEMPRE los requisitos universales de la Ley 38/2003
+     * General de Subvenciones (art. 13), diferencia entre extracto y bases reguladoras,
+     * y cubre el ciclo completo hasta la justificación.
+     * <p>
+     * Referencia normativa: LGS 38/2003, RD 887/2006, Ley 39/2015 (LPACAP).
      */
-    private static final String SYSTEM_PROMPT =
-            "Eres el motor de recomendaciones de Syntia, plataforma española de ayudas y subvenciones públicas. " +
-            "Se te proporciona: el perfil y proyecto de un usuario, y los datos de una convocatoria real de la BDNS. " +
-            "Cuando se incluya la sección '=== CONTENIDO OFICIAL DE LA CONVOCATORIA ===', " +
-            "DEBES usarla como fuente primaria para determinar requisitos, beneficiarios y procedimiento. " +
-            "Si no hay contenido oficial, infiere a partir del título y organismo.\n\n" +
-            "TU TAREA tiene dos partes:\n\n" +
-            "PARTE 1 - MATCHING (puntuación 0-100):\n" +
-            "- 90-100: el perfil/proyecto cumple claramente los requisitos de la convocatoria.\n" +
-            "- 70-89: alta compatibilidad con algún matiz a verificar.\n" +
-            "- 50-69: compatible pero hay diferencias relevantes.\n" +
-            "- 30-49: compatibilidad baja.\n" +
-            "- 0-29: incompatible.\n" +
-            "La 'explicacion': máximo 2 frases. Primera: punto fuerte de compatibilidad. " +
-            "Segunda: requisito específico de la convocatoria que el usuario debe verificar.\n\n" +
-            "PARTE 2 - GUÍA DE SOLICITUD (basada en el contenido oficial si está disponible):\n" +
-            "5 pasos separados por | con información EXACTA y ESPECÍFICA de esta convocatoria:\n" +
-            "PASO 1: Requisitos concretos de elegibilidad extraídos del contenido oficial " +
-            "(tipo de beneficiario, sector, tamaño empresa, antigüedad mínima, etc.).\n" +
-            "PASO 2: Documentación específica requerida según el organismo convocante " +
-            "(certificados, memorias, planes, declaraciones responsables, etc.).\n" +
-            "PASO 3: Cómo y dónde presentar la solicitud — indica la sede electrónica o plataforma " +
-            "específica del organismo convocante mencionado.\n" +
-            "PASO 4: Plazos concretos — fecha de cierre si la conoces, plazo de resolución, " +
-            "inicio mínimo de actividad subvencionable.\n" +
-            "PASO 5: Advertencia clave o consejo específico para esta convocatoria " +
-            "(incompatibilidades, criterios de valoración, errores frecuentes).\n\n" +
-            "RESPONDE ÚNICAMENTE con este JSON (sin texto adicional fuera del JSON):\n" +
-            "{\"puntuacion\": N, \"explicacion\": \"texto\", \"sector\": \"UNA_PALABRA\", " +
-            "\"guia\": \"PASO 1: texto|PASO 2: texto|PASO 3: texto|PASO 4: texto|PASO 5: texto\"}";
+    private static final String SYSTEM_PROMPT = """
+            Eres el motor de recomendaciones de Syntia, plataforma española de ayudas y subvenciones públicas. \
+            Se te proporciona: el perfil y proyecto de un usuario, y los datos de una convocatoria real de la BDNS. \
+            Cuando se incluya la sección '=== CONTENIDO OFICIAL DE LA CONVOCATORIA ===', \
+            DEBES usarla como fuente primaria para determinar requisitos, beneficiarios y procedimiento. \
+            Si no hay contenido oficial, infiere a partir del título y organismo.
 
-    private static final String KEYWORDS_SYSTEM_PROMPT =
-            "Eres un experto en subvenciones públicas españolas. " +
-            "A partir del proyecto y perfil de usuario, genera términos de búsqueda " +
-            "para encontrar convocatorias relevantes en la BDNS (Base de Datos Nacional de Subvenciones). " +
-            "Reglas: cada búsqueda debe ser 2-4 palabras clave en español, " +
-            "centradas en el sector, tipo de ayuda, ámbito o tipo de entidad del proyecto. " +
-            "Genera entre 6 y 8 búsquedas distintas que cubran diferentes ángulos: " +
-            "sector principal, actividad concreta, tipo de entidad, financiación I+D, digitalización, " +
-            "internacionalización, sostenibilidad y ámbito geográfico si se conoce. " +
-            "Si hay pocos datos del proyecto, genera búsquedas genéricas pero útiles como 'subvención pyme', " +
-            "'ayuda empresa innovación', 'subvención emprendedor'. " +
-            "RESPONDE ÚNICAMENTE con este JSON: {\"busquedas\": [\"kw1\", \"kw2\", \"kw3\"]}";
+            TU TAREA tiene dos partes:
+
+            PARTE 1 - MATCHING (puntuación 0-100):
+            - 90-100: el perfil/proyecto cumple claramente los requisitos de la convocatoria.
+            - 70-89: alta compatibilidad con algún matiz a verificar.
+            - 50-69: compatible pero hay diferencias relevantes.
+            - 30-49: compatibilidad baja.
+            - 0-29: incompatible.
+            La 'explicacion': máximo 2 frases. Primera: punto fuerte de compatibilidad. \
+            Segunda: requisito específico de la convocatoria que el usuario debe verificar.
+
+            PARTE 2 - GUÍA DE SOLICITUD (8 pasos separados por |):
+            PASO 1: REQUISITOS LEGALES — Incluye SIEMPRE estos requisitos universales (Ley 38/2003 art. 13): \
+            estar al corriente de obligaciones tributarias (AEAT), al corriente con la Seguridad Social (TGSS), \
+            no incurso en prohibiciones del art. 13 LGS. Luego añade los requisitos ESPECÍFICOS de la convocatoria \
+            (tipo de beneficiario, sector, tamaño empresa, antigüedad, etc.).
+            PASO 2: DOCUMENTACIÓN OBLIGATORIA — Lista concreta: certificado AEAT, certificado TGSS, \
+            declaración responsable art. 13, NIF/CIF, y documentos específicos de esta convocatoria \
+            (memoria técnica, presupuesto desglosado, plan de empresa, etc.).
+            PASO 3: ACCESO Y PRESENTACIÓN — Indica la sede electrónica ESPECÍFICA del organismo convocante. \
+            Menciona los medios de identificación aceptados (certificado digital, Cl@ve, DNIe). \
+            Indica si se necesita AutoFirma para la firma electrónica.
+            PASO 4: PLAZOS Y CALENDARIO — Fecha de cierre si la conoces, si cuenta en días hábiles o naturales, \
+            plazo de resolución previsto, fecha mínima de inicio de actividad subvencionable.
+            PASO 5: RÉGIMEN DE CONCESIÓN — Indica si es concurrencia competitiva (se comparan solicitudes), \
+            concesión directa o por orden de presentación. Si es competitiva, menciona criterios de valoración principales.
+            PASO 6: TRAS LA CONCESIÓN — Obligaciones del beneficiario: plazo de aceptación, \
+            inicio de la actividad, comunicación de incidencias, compatibilidad con otras ayudas (minimis).
+            PASO 7: JUSTIFICACIÓN — Tipo de cuenta justificativa (simplificada u ordinaria), \
+            plazo para justificar, documentos necesarios (facturas, memoria final, indicadores).
+            PASO 8: ADVERTENCIAS CRÍTICAS — Errores frecuentes de exclusión, incompatibilidades, \
+            diferencia entre el extracto (BOE/boletín) y las bases reguladoras (texto íntegro con requisitos completos). \
+            Recuerda al usuario que debe leer las bases reguladoras completas, no solo el extracto.
+
+            Si no tienes contenido oficial suficiente para algún paso, indica 'Consultar las bases reguladoras \
+            de la convocatoria para requisitos exactos' en lugar de inventar información.
+
+            RESPONDE ÚNICAMENTE con este JSON (sin texto adicional fuera del JSON):
+            {"puntuacion": N, "explicacion": "texto", "sector": "UNA_PALABRA", \
+            "guia": "PASO 1: texto|PASO 2: texto|PASO 3: texto|PASO 4: texto|PASO 5: texto|PASO 6: texto|PASO 7: texto|PASO 8: texto"}
+            """;
+
+    private static final String KEYWORDS_SYSTEM_PROMPT = """
+            Eres un experto en subvenciones públicas españolas. \
+            A partir del proyecto y perfil de usuario, genera términos de búsqueda \
+            para encontrar convocatorias relevantes en la BDNS (Base de Datos Nacional de Subvenciones). \
+            Reglas: cada búsqueda debe ser 2-4 palabras clave en español, \
+            centradas en el sector, tipo de ayuda, ámbito o tipo de entidad del proyecto. \
+            Genera entre 6 y 8 búsquedas distintas que cubran diferentes ángulos: \
+            sector principal, actividad concreta, tipo de entidad, financiación I+D, digitalización, \
+            internacionalización, sostenibilidad y ámbito geográfico si se conoce. \
+            Si hay pocos datos del proyecto, genera búsquedas genéricas pero útiles como 'subvención pyme', \
+            'ayuda empresa innovación', 'subvención emprendedor'. \
+            RESPONDE ÚNICAMENTE con este JSON: {"busquedas": ["kw1", "kw2", "kw3"]}
+            """;
 
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
@@ -90,59 +117,80 @@ public class OpenAiMatchingService {
 
         // ── CONVOCATORIA (primero para que la IA la tenga clara antes de leer el perfil) ──
         sb.append("=== CONVOCATORIA PÚBLICA (BDNS) ===\n");
-        sb.append("Título completo: ").append(convocatoria.getTitulo()).append("\n");
-        sb.append("Organismo convocante: ").append(Optional.ofNullable(convocatoria.getFuente()).orElse("No especificado")).append("\n");
-        sb.append("Tipo de convocatoria: ").append(Optional.ofNullable(convocatoria.getTipo()).orElse("No especificado")).append("\n");
-        sb.append("Ámbito geográfico: ").append(Optional.ofNullable(convocatoria.getUbicacion()).orElse("Nacional")).append("\n");
-        if (convocatoria.getSector() != null && !convocatoria.getSector().isBlank())
-            sb.append("Sector de la convocatoria: ").append(convocatoria.getSector()).append("\n");
+        sb.append("Título: ").append(convocatoria.getTitulo()).append("\n");
+        appendIfPresent(sb, "Organismo", convocatoria.getFuente());
+        appendIfPresent(sb, "Tipo", convocatoria.getTipo());
+        appendIfPresent(sb, "Ámbito", convocatoria.getUbicacion());
+        appendIfPresent(sb, "Sector", convocatoria.getSector());
         if (convocatoria.getFechaCierre() != null)
-            sb.append("Fecha de cierre: ").append(convocatoria.getFechaCierre()).append("\n");
-        if (convocatoria.getUrlOficial() != null && !convocatoria.getUrlOficial().isBlank())
-            sb.append("URL oficial: ").append(convocatoria.getUrlOficial()).append("\n");
+            sb.append("Cierre: ").append(convocatoria.getFechaCierre()).append("\n");
+        // URL excluida del prompt — no aporta valor semántico y gasta tokens
 
         // ── CONTENIDO REAL DE LA CONVOCATORIA (obtenido de la API BDNS) ──
         if (detalleTexto != null && !detalleTexto.isBlank()) {
             sb.append("\n=== CONTENIDO OFICIAL DE LA CONVOCATORIA ===\n");
-            // Limitar a 1500 chars para no saturar el contexto de tokens
-            String detalleTruncado = detalleTexto.length() > 1500
-                    ? detalleTexto.substring(0, 1500) + "..."
-                    : detalleTexto;
-            sb.append(detalleTruncado).append("\n");
-            sb.append("(Usa este contenido para determinar requisitos EXACTOS y generar una guía precisa.)\n");
+            String detalleLimpio = limpiarTexto(detalleTexto);
+            sb.append(detalleLimpio).append("\n");
+            sb.append("(Usa este contenido para requisitos EXACTOS y guía precisa.)\n");
         } else {
-            sb.append("\n(Nota: detalle de la convocatoria no disponible en la API. ");
-            sb.append("Infiere los requisitos a partir del título y organismo.)\n");
+            sb.append("\n(Detalle no disponible. Infiere a partir del título y organismo.)\n");
         }
 
         // ── PROYECTO DEL USUARIO ──
-        sb.append("\n=== PROYECTO DEL USUARIO ===\n");
-        sb.append("Nombre: ").append(Optional.ofNullable(proyecto.getNombre()).orElse("Sin nombre")).append("\n");
-        sb.append("Sector: ").append(Optional.ofNullable(proyecto.getSector()).orElse("No indicado")).append("\n");
-        sb.append("Ubicación: ").append(Optional.ofNullable(proyecto.getUbicacion()).orElse("No indicada")).append("\n");
-        sb.append("Descripción: ").append(Optional.ofNullable(proyecto.getDescripcion()).orElse("Sin descripción")).append("\n");
+        sb.append("\n=== PROYECTO ===\n");
+        appendIfPresent(sb, "Nombre", proyecto.getNombre());
+        appendIfPresent(sb, "Sector", proyecto.getSector());
+        appendIfPresent(sb, "Ubicación", proyecto.getUbicacion());
+        appendIfPresent(sb, "Descripción", proyecto.getDescripcion());
 
-        // ── PERFIL DE LA ENTIDAD ──
+        // ── PERFIL DE LA ENTIDAD (solo campos con valor, sin duplicar sector si coincide con proyecto) ──
         if (perfil != null) {
-            sb.append("\n=== PERFIL DE LA ENTIDAD ===\n");
-            sb.append("Tipo de entidad: ").append(Optional.ofNullable(perfil.getTipoEntidad()).orElse("No indicado")).append("\n");
-            sb.append("Sector de actividad: ").append(Optional.ofNullable(perfil.getSector()).orElse("No indicado")).append("\n");
-            sb.append("Ubicación: ").append(Optional.ofNullable(perfil.getUbicacion()).orElse("No indicada")).append("\n");
-            sb.append("Objetivos: ").append(Optional.ofNullable(perfil.getObjetivos()).orElse("No indicados")).append("\n");
-            sb.append("Necesidades de financiación: ").append(Optional.ofNullable(perfil.getNecesidadesFinanciacion()).orElse("No indicadas")).append("\n");
-            if (perfil.getDescripcionLibre() != null && !perfil.getDescripcionLibre().isBlank())
-                sb.append("Descripción libre: ").append(perfil.getDescripcionLibre()).append("\n");
+            sb.append("\n=== PERFIL ENTIDAD ===\n");
+            appendIfPresent(sb, "Tipo entidad", perfil.getTipoEntidad());
+            // Solo incluir sector del perfil si es diferente al del proyecto
+            if (perfil.getSector() != null && !perfil.getSector().isBlank()
+                    && !perfil.getSector().equalsIgnoreCase(proyecto.getSector())) {
+                sb.append("Sector entidad: ").append(perfil.getSector()).append("\n");
+            }
+            // Solo incluir ubicación del perfil si es diferente a la del proyecto
+            if (perfil.getUbicacion() != null && !perfil.getUbicacion().isBlank()
+                    && !perfil.getUbicacion().equalsIgnoreCase(proyecto.getUbicacion())) {
+                sb.append("Ubicación entidad: ").append(perfil.getUbicacion()).append("\n");
+            }
+            appendIfPresent(sb, "Objetivos", perfil.getObjetivos());
+            appendIfPresent(sb, "Necesidades financiación", perfil.getNecesidadesFinanciacion());
+            appendIfPresent(sb, "Descripción libre", perfil.getDescripcionLibre());
         }
 
         sb.append("\n=== INSTRUCCIÓN ===\n");
         if (detalleTexto != null) {
-            sb.append("Usa el CONTENIDO OFICIAL de la convocatoria para generar requisitos y guía EXACTOS y precisos. ");
-            sb.append("La guía debe basarse en los datos reales del documento oficial.");
+            sb.append("Usa el CONTENIDO OFICIAL para requisitos y guía EXACTOS.");
         } else {
-            sb.append("No hay contenido oficial disponible. Infiere los requisitos y guía a partir del título y organismo.");
+            sb.append("No hay contenido oficial. Infiere requisitos y guía del título y organismo.");
         }
 
         return sb.toString();
+    }
+
+    /** Solo añade al StringBuilder si el valor no está vacío. Ahorra tokens eliminando "No indicado". */
+    private void appendIfPresent(StringBuilder sb, String label, String value) {
+        if (value != null && !value.isBlank()) {
+            sb.append(label).append(": ").append(value).append("\n");
+        }
+    }
+
+    /** Máximo de caracteres del detalle BDNS que se envía al prompt de evaluación. */
+    private static final int MAX_DETALLE_CHARS = 1500;
+
+    /** Limpia texto de BDNS: elimina HTML, normaliza espacios y trunca a {@link #MAX_DETALLE_CHARS}. */
+    private String limpiarTexto(String texto) {
+        if (texto == null) return "";
+        String limpio = texto.replaceAll("<[^>]+>", " ");
+        limpio = limpio.replaceAll("\\s+", " ").trim();
+        if (limpio.length() > MAX_DETALLE_CHARS) {
+            limpio = limpio.substring(0, MAX_DETALLE_CHARS) + "...";
+        }
+        return limpio;
     }
 
     private ResultadoIA parsearRespuesta(String respuesta, Proyecto proyecto, Convocatoria convocatoria) {
@@ -180,12 +228,24 @@ public class OpenAiMatchingService {
         StringBuilder sb = new StringBuilder();
         sb.append("Nombre: ").append(Optional.ofNullable(proyecto.getNombre()).orElse("")).append("\n");
         sb.append("Sector: ").append(Optional.ofNullable(proyecto.getSector()).orElse("")).append("\n");
-        sb.append("Ubicación: ").append(Optional.ofNullable(proyecto.getUbicacion()).orElse("")).append("\n");
+        // Usar ubicación del proyecto, o la del perfil como fallback
+        String ubicacion = proyecto.getUbicacion();
+        if ((ubicacion == null || ubicacion.isBlank()) && perfil != null) {
+            ubicacion = perfil.getUbicacion();
+        }
+        sb.append("Ubicación: ").append(Optional.ofNullable(ubicacion).orElse("")).append("\n");
         sb.append("Descripción: ").append(Optional.ofNullable(proyecto.getDescripcion()).orElse("")).append("\n");
         if (perfil != null) {
             sb.append("Tipo entidad: ").append(Optional.ofNullable(perfil.getTipoEntidad()).orElse("")).append("\n");
             sb.append("Objetivos: ").append(Optional.ofNullable(perfil.getObjetivos()).orElse("")).append("\n");
             sb.append("Necesidades: ").append(Optional.ofNullable(perfil.getNecesidadesFinanciacion()).orElse("")).append("\n");
+            // Incluir descripción libre del perfil (truncada a 300 chars) — aporta contexto rico
+            if (perfil.getDescripcionLibre() != null && !perfil.getDescripcionLibre().isBlank()) {
+                String descLibre = perfil.getDescripcionLibre().length() > 300
+                        ? perfil.getDescripcionLibre().substring(0, 300)
+                        : perfil.getDescripcionLibre();
+                sb.append("Contexto adicional: ").append(descLibre).append("\n");
+            }
         }
         return sb.toString();
     }

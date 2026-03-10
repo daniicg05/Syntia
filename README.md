@@ -306,7 +306,7 @@ OpenAI (gpt-4.1) responde:
   "puntuacion": 85,
   "explicacion": "Alta compatibilidad: el proyecto de digitalización agrícola encaja directamente con el objetivo de modernización del FEADER. La ubicación en Andalucía es elegible y las necesidades de I+D están alineadas con las bases de la convocatoria.",
   "sector": "Agricultura",
-  "guia": "Verificar que la entidad cumple los requisitos de beneficiario FEADER|Preparar memoria técnica del proyecto con presupuesto desglosado|Presentar solicitud en la sede electrónica de la Junta de Andalucía|Plazo estimado: consultar convocatoria oficial (puede variar)|Consejo: destacar el componente IoT como innovación tecnológica"
+  "guia": "PASO 1: Requisitos legales — Al corriente AEAT y TGSS, declaración art. 13 LGS. Beneficiarios: PYMEs del sector agrario con sede en Andalucía|PASO 2: Documentación — Certificado AEAT, TGSS, NIF, memoria técnica del proyecto IoT, presupuesto desglosado, plan de empresa|PASO 3: Presentar en la sede electrónica de la Junta de Andalucía con certificado digital o Cl@ve permanente. Requiere AutoFirma|PASO 4: Plazo de cierre: consultar convocatoria oficial. Resolución estimada: 6 meses|PASO 5: Concurrencia competitiva — Se valoran innovación tecnológica, impacto en empleo rural y sostenibilidad|PASO 6: Tras concesión: aceptar en 15 días, iniciar actividad en plazo. Declaración minimis obligatoria|PASO 7: Justificar con cuenta justificativa simplificada, facturas y memoria final en 3 meses tras fin de proyecto|PASO 8: Leer bases reguladoras completas (no solo el extracto BOE). Destacar componente IoT como innovación diferencial"
 }
 ```
 
@@ -335,21 +335,27 @@ Toda la documentación del proyecto está en la carpeta `docs/`:
 | `02-plan-proyecto.md` | Plan de proyecto y hitos |
 | `03-especificaciones-tecnicas.md` | Stack, modelos de datos, endpoints, estructura de paquetes |
 | `04-manual-desarrollo.md` | Guía de desarrollo + §7 API REST + §8 despliegue en producción |
-| `05-changelog.md` | Historial de versiones (v0.1.0 → v3.0.0) |
+| `05-changelog.md` | Historial de versiones (v0.1.0 → v3.4.0) |
 | `06-diagramas.md` | Diagramas ER, clases UML, secuencia SSE, autenticación JWT |
 | `07-fases-implementacion.md` | Estado real de las 7 fases implementadas + backlog |
 | `08-informe-arquitectura-ia-streaming.md` | Análisis de arquitectura, SSE, optimización de tokens, roadmap |
+| `09-auditoria-guia-subvenciones.md` | Auditoría del flujo real de solicitud de subvenciones (LGS, LPACAP), wireframes, modelado REST, comparativa |
+| `10-auditoria-campos-optimizacion-ia.md` | Auditoría de campos perfil/proyecto, optimización de tokens, pre-filtro geográfico, arquitectura optimizada |
+| `11-flujo-bdns-analisis-tecnico.md` | Ingeniería inversa BDNS: endpoints, parámetros, flujo end-to-end, mapeo perfil→BDNS, arquitectura optimizada |
 
 ---
 
 ## Versión actual
 
-**v3.0.0** — Todas las fases implementadas + SSE Streaming:
+**v3.4.0** — Todas las fases + SSE + Guía legal + Stepper + Optimización tokens + Paralelismo BDNS:
 - ✅ Autenticación + perfil de usuario
 - ✅ Gestión de proyectos (CRUD)
 - ✅ Motor de matching con OpenAI gpt-4.1 + fallback rule-based
 - ✅ **SSE Streaming: resultados aparecen uno a uno en tiempo real**
-- ✅ **Optimización de tokens: ~67% reducción en consumo**
+- ✅ **Guía de solicitud visual: stepper flowchart + timeline con iconos (8 pasos, LGS)**
+- ✅ **Optimización de tokens: prompt sin datos vacíos, pre-filtro geográfico, limpieza HTML**
+- ✅ **Paralelismo BDNS: detalles de convocatorias descargados en paralelo (-85% latencia)**
+- ✅ **Deduplicación por idBdns: cero evaluaciones duplicadas**
 - ✅ Dashboard interactivo + roadmap de fechas
 - ✅ Panel administrativo completo
 - ✅ API REST con JWT
