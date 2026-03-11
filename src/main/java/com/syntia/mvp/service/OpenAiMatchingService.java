@@ -8,9 +8,6 @@ import com.syntia.mvp.model.Proyecto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
@@ -81,19 +78,6 @@ public class OpenAiMatchingService {
             "guia": "PASO 1: texto|PASO 2: texto|PASO 3: texto|PASO 4: texto|PASO 5: texto|PASO 6: texto|PASO 7: texto|PASO 8: texto"}
             """;
 
-    private static final String KEYWORDS_SYSTEM_PROMPT = """
-            Eres un experto en subvenciones públicas españolas. \
-            A partir del proyecto y perfil de usuario, genera términos de búsqueda \
-            para encontrar convocatorias relevantes en la BDNS (Base de Datos Nacional de Subvenciones). \
-            Reglas: cada búsqueda debe ser 2-4 palabras clave en español, \
-            centradas en el sector, tipo de ayuda, ámbito o tipo de entidad del proyecto. \
-            Genera entre 6 y 8 búsquedas distintas que cubran diferentes ángulos: \
-            sector principal, actividad concreta, tipo de entidad, financiación I+D, digitalización, \
-            internacionalización, sostenibilidad y ámbito geográfico si se conoce. \
-            Si hay pocos datos del proyecto, genera búsquedas genéricas pero útiles como 'subvención pyme', \
-            'ayuda empresa innovación', 'subvención emprendedor'. \
-            RESPONDE ÚNICAMENTE con este JSON: {"busquedas": ["kw1", "kw2", "kw3"]}
-            """;
 
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
@@ -210,77 +194,6 @@ public class OpenAiMatchingService {
         }
     }
 
-    // ── Keywords ─────────────────────────────────────────────────────────────
-
-    public List<String> generarKeywordsBusqueda(Proyecto proyecto, Perfil perfil) {
-        String userPrompt = construirPromptKeywords(proyecto, perfil);
-        log.info("Generando keywords BDNS para proyecto={}", proyecto.getId());
-        try {
-            String respuesta = openAiClient.chat(KEYWORDS_SYSTEM_PROMPT, userPrompt);
-            return parsearKeywords(respuesta);
-        } catch (Exception e) {
-            log.warn("Error generando keywords con OpenAI, usando fallback básico: {}", e.getMessage());
-            return generarKeywordsBasicas(proyecto, perfil);
-        }
-    }
-
-    private String construirPromptKeywords(Proyecto proyecto, Perfil perfil) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Nombre: ").append(Optional.ofNullable(proyecto.getNombre()).orElse("")).append("\n");
-        sb.append("Sector: ").append(Optional.ofNullable(proyecto.getSector()).orElse("")).append("\n");
-        // Usar ubicación del proyecto, o la del perfil como fallback
-        String ubicacion = proyecto.getUbicacion();
-        if ((ubicacion == null || ubicacion.isBlank()) && perfil != null) {
-            ubicacion = perfil.getUbicacion();
-        }
-        sb.append("Ubicación: ").append(Optional.ofNullable(ubicacion).orElse("")).append("\n");
-        sb.append("Descripción: ").append(Optional.ofNullable(proyecto.getDescripcion()).orElse("")).append("\n");
-        if (perfil != null) {
-            sb.append("Tipo entidad: ").append(Optional.ofNullable(perfil.getTipoEntidad()).orElse("")).append("\n");
-            sb.append("Objetivos: ").append(Optional.ofNullable(perfil.getObjetivos()).orElse("")).append("\n");
-            sb.append("Necesidades: ").append(Optional.ofNullable(perfil.getNecesidadesFinanciacion()).orElse("")).append("\n");
-            // Incluir descripción libre del perfil (truncada a 300 chars) — aporta contexto rico
-            if (perfil.getDescripcionLibre() != null && !perfil.getDescripcionLibre().isBlank()) {
-                String descLibre = perfil.getDescripcionLibre().length() > 300
-                        ? perfil.getDescripcionLibre().substring(0, 300)
-                        : perfil.getDescripcionLibre();
-                sb.append("Contexto adicional: ").append(descLibre).append("\n");
-            }
-        }
-        return sb.toString();
-    }
-
-    private List<String> parsearKeywords(String respuesta) {
-        try {
-            JsonNode node = objectMapper.readTree(respuesta);
-            JsonNode busquedas = node.path("busquedas");
-            List<String> keywords = new ArrayList<>();
-            if (busquedas.isArray()) {
-                busquedas.forEach(kw -> {
-                    String s = kw.asText().trim();
-                    if (!s.isBlank()) keywords.add(s);
-                });
-            }
-            log.info("Keywords generadas por OpenAI: {}", keywords);
-            return keywords.isEmpty() ? generarKeywordsBasicas(null, null) : keywords;
-        } catch (Exception e) {
-            log.warn("Error parseando keywords: {}", e.getMessage());
-            return generarKeywordsBasicas(null, null);
-        }
-    }
-
-    private List<String> generarKeywordsBasicas(Proyecto proyecto, Perfil perfil) {
-        List<String> keywords = new ArrayList<>();
-        if (proyecto != null) {
-            if (proyecto.getSector() != null) keywords.add("subvención " + proyecto.getSector().toLowerCase());
-            if (proyecto.getUbicacion() != null) keywords.add("ayuda " + proyecto.getUbicacion().toLowerCase());
-        }
-        if (perfil != null && perfil.getTipoEntidad() != null)
-            keywords.add("subvención " + perfil.getTipoEntidad().toLowerCase());
-        if (keywords.isEmpty()) keywords.add("subvención empresa");
-        log.info("Keywords básicas (fallback): {}", keywords);
-        return keywords;
-    }
 
     public record ResultadoIA(int puntuacion, String explicacion, String sector, String guia, boolean usadaIA) {}
 }

@@ -1,7 +1,7 @@
 # Plan de Implementación por Fases: Syntia
 
-> Documento actualizado el **2026-03-11**. Refleja el estado real del código hasta v3.4.0.
-> Plan de implementación v4.0.0 detallado en `docs/13-plan-fases-v4.md`.
+> Documento actualizado el **2026-03-11**. Refleja el estado real del código hasta v4.1.0.
+> Plan de implementación v4.0.0 completado en `docs/13-plan-fases-v4.md`.
 > Repositorio: https://github.com/daniicg05/Syntia.git
 
 ---
@@ -111,22 +111,23 @@ Syntia es una plataforma web que permite a usuarios (emprendedores, autónomos, 
 | 3.22 | **Deduplicación por idBdns: cero evaluaciones duplicadas por la misma convocatoria** | ✅ |
 | 3.23 | **Informe técnico flujo BDNS: endpoints, parámetros, mapeo perfil→BDNS, 41 llamadas documentadas** | ✅ |
 
-**Flujo del motor (v3.4.0):**
+**Flujo del motor (v4.0.0 — BDNS-First):**
 ```
 Perfil + Proyecto
       ↓
-OpenAI gpt-4.1 → genera 6-8 keywords
-  (fuentes: nombre, sector, ubicación, descripción, tipoEntidad, objetivos,
-   necesidadesFinanciacion, descripcionLibre hasta 300 chars, perfil.ubicacion fallback)
+BdnsFiltrosBuilder.construir() → FiltrosBdns { descripcion, ccaa }
+  (fuentes: SectorNormalizador(sector), UbicacionNormalizador(ubicacion))
+  [0 tokens, 0 latencia, sin depender de OpenAI]
       ↓
-API BDNS real (?vigente=true, ?descripcion=keyword) → hasta 15 resultados por keyword
+BdnsClientService.buscarPorFiltros() → paralelo ESTADO(10) + AUTONOMICA(10)
+  + fallback progresivo: si < 3 resultados → relajar descripción → relajar territorio
       ↓
 Deduplicación doble en memoria:
   1. Por idBdns (más fiable)
   2. Por título (fallback)
   + Descartar caducadas (fechaCierre < hoy)
       ↓
-Pre-filtro geográfico: descarta autonómicas de CCAA incompatible
+Pre-filtro geográfico (safety net): descarta autonómicas incompatibles
       ↓
 Obtención paralela de detalles BDNS (CompletableFuture.allOf, 10 hilos):
   Por cada candidata simultáneamente → /api/convocatorias/{idBdns}
@@ -243,15 +244,28 @@ openai.temperature=0.1              # Determinismo alto
 ---
 
 ## Fase 8 – Pipeline BDNS-First (v4.0.0)
-> **Estado:** 🔲 PENDIENTE
+> **Estado:** ✅ COMPLETADA
 > **Plan detallado:** `docs/13-plan-fases-v4.md` — FASES 2-3
 > **Análisis previo:** `docs/12-refactoring-pipeline-motor-busqueda-bdns-first.md`
 
 | # | Funcionalidad | Estado |
 |---|--------------|--------|
-| 8.1 | SectorNormalizador.java — mapeo sector → término BDNS | 🔲 |
-| 8.2 | FiltrosBdns record + BdnsFiltrosBuilder | 🔲 |
-| 8.3 | BdnsClientService.buscarPorFiltros() con fallback progresivo | 🔲 |
-| 8.4 | MotorMatchingService integrado con BDNS-First | 🔲 |
-| 8.5 | OpenAiMatchingService sin bloque keywords (~90 líneas eliminadas) | 🔲 |
-| 8.6 | Evento SSE `keywords` → `filtros` en stream.js | 🔲 |
+| 8.1 | SectorNormalizador.java — mapeo sector → término BDNS (50+ sectores) | ✅ |
+| 8.2 | FiltrosBdns record + BdnsFiltrosBuilder (determinístico, sin IA) | ✅ |
+| 8.3 | BdnsClientService.buscarPorFiltros() con fallback progresivo en 2 niveles | ✅ |
+| 8.4 | MotorMatchingService integrado con BDNS-First (ambos métodos públicos) | ✅ |
+| 8.5 | OpenAiMatchingService sin bloque keywords (~90 líneas eliminadas) | ✅ |
+| 8.6 | Evento SSE `keywords` → `filtros` en recomendaciones-stream.js | ✅ |
+
+## Fase 9 – Búsqueda rápida sin IA (v4.1.0)
+> **Estado:** ✅ COMPLETADA
+
+| # | Funcionalidad | Estado |
+|---|--------------|--------|
+| 9.1 | BusquedaRapidaService.java — búsqueda BDNS determinística, persiste candidatas con `usadaIa=false` | ✅ |
+| 9.2 | RecomendacionRepository: `deleteByProyectoIdAndUsadaIaFalse()`, `findByProyectoId()` | ✅ |
+| 9.3 | Endpoint `POST /buscar-candidatas` en RecomendacionController | ✅ |
+| 9.4 | Botón `🔎 Buscar convocatorias` en recomendaciones.html | ✅ |
+| 9.5 | Diferenciación visual: tarjetas candidatas (borde amarillo) vs IA (borde limpio + puntuación) | ✅ |
+| 9.6 | Modal guía condicionado a `th:if="${rec.usadaIa}"` | ✅ |
+

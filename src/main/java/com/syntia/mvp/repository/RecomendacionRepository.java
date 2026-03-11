@@ -97,5 +97,19 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
     @Modifying
     @Query("UPDATE Recomendacion r SET r.guiaEnriquecida = null WHERE r.guiaEnriquecida IS NOT NULL")
     int invalidarTodasLasGuiasEnriquecidas();
+
+    /**
+     * Elimina las recomendaciones NO evaluadas por IA de un proyecto.
+     * Permite regenerar candidatas de búsqueda rápida sin perder las analizadas por IA.
+     */
+    @Modifying
+    @Query("DELETE FROM Recomendacion r WHERE r.proyecto.id = :proyectoId AND r.usadaIa = false")
+    void deleteByProyectoIdAndUsadaIaFalse(@Param("proyectoId") Long proyectoId);
+
+    /**
+     * Obtiene todas las recomendaciones de un proyecto (con JOIN FETCH en convocatoria).
+     */
+    @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria WHERE r.proyecto.id = :proyectoId")
+    List<Recomendacion> findByProyectoId(@Param("proyectoId") Long proyectoId);
 }
 

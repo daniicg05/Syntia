@@ -1,9 +1,9 @@
 # 13 – Plan de Implementación por Fases: v4.0.0
 
 **Fecha:** 2026-03-11  
-**Versión actual:** v3.4.0  
+**Versión actual:** v4.0.0  
 **Versión objetivo:** v4.0.0  
-**Estado:** 🟡 En ejecución
+**Estado:** ✅ COMPLETADO — 4/4 fases implementadas
 
 ---
 
@@ -67,15 +67,16 @@
 ### FASE 2 — Pipeline BDNS-First: constructor de filtros (v3.6.0)
 > **Prioridad:** ALTA — Reducción de latencia y coste  
 > **Esfuerzo:** 6-8 horas  
-> **Dependencias:** Ninguna (independiente de Fase 1)
+> **Dependencias:** Ninguna (independiente de Fase 1)  
+> **Estado:** ✅ COMPLETADA
 
-| Paso | Descripción | Archivos |
-|------|-------------|----------|
-| 2.1 | Crear `SectorNormalizador.java` — clase utilitaria estática con mapeo sector texto libre → términos BDNS. Top 25 sectores + fallback. | `service/SectorNormalizador.java` (NUEVO) |
-| 2.2 | Crear record `FiltrosBdns.java` — inmutable: `(String descripcion, String nivel1, String nivel2)` | `model/dto/FiltrosBdns.java` (NUEVO) |
-| 2.3 | Crear `BdnsFiltrosBuilder.java` — clase utilitaria que recibe `Proyecto` + `Perfil` y devuelve `FiltrosBdns` usando `UbicacionNormalizador` + `SectorNormalizador` | `service/BdnsFiltrosBuilder.java` (NUEVO) |
-| 2.4 | Añadir `buscarPorFiltros(FiltrosBdns)` en `BdnsClientService` con URL construida con parámetros estructurados y fallback progresivo (si < 3 resultados → ampliar) | `service/BdnsClientService.java` |
-| 2.5 | Test unitario de `BdnsFiltrosBuilder` y `SectorNormalizador` | `test/` (NUEVO) |
+| Paso | Descripción | Archivos | Estado |
+|------|-------------|----------|--------|
+| 2.1 | Crear `SectorNormalizador.java` — clase utilitaria estática con mapeo sector texto libre → términos BDNS. 50+ sectores + fallback. | `service/SectorNormalizador.java` (NUEVO) | ✅ |
+| 2.2 | Crear record `FiltrosBdns.java` — inmutable: `(String descripcion, String nivel1, String nivel2)` con métodos `sinDescripcion()` y `sinTerritorio()` para fallback | `model/dto/FiltrosBdns.java` (NUEVO) | ✅ |
+| 2.3 | Crear `BdnsFiltrosBuilder.java` — clase utilitaria que recibe `Proyecto` + `Perfil` y devuelve `FiltrosBdns` usando `UbicacionNormalizador` + `SectorNormalizador` | `service/BdnsFiltrosBuilder.java` (NUEVO) | ✅ |
+| 2.4 | Añadir `buscarPorFiltros(FiltrosBdns)` en `BdnsClientService` con URL construida con parámetros estructurados y fallback progresivo (si < 3 resultados → ampliar) | `service/BdnsClientService.java` | ✅ |
+| 2.5 | Tests unitarios: 17 tests para `SectorNormalizador`, `FiltrosBdns`, `BdnsFiltrosBuilder` | `test/.../BdnsFirstPipelineTest.java` (NUEVO) | ✅ |
 
 **Entregable:** Infraestructura de búsqueda estructurada lista para integrar en el motor.
 
@@ -84,17 +85,18 @@
 ### FASE 3 — Pipeline BDNS-First: integración en el motor (v4.0.0)
 > **Prioridad:** ALTA  
 > **Esfuerzo:** 8-10 horas  
-> **Dependencias:** Fase 2 completada
+> **Dependencias:** Fase 2 completada  
+> **Estado:** ✅ COMPLETADA
 
-| Paso | Descripción | Archivos |
-|------|-------------|----------|
-| 3.1 | Añadir `buscarConFiltros(Proyecto, Perfil)` en `MotorMatchingService` — usa `BdnsFiltrosBuilder` + `bdnsClientService.buscarPorFiltros()`. Incluye deduplicación por `idBdns` + título | `service/MotorMatchingService.java` |
-| 3.2 | Modificar `generarRecomendaciones()` — reemplazar llamada a `generarKeywords()` + `buscarEnBdns()` por `buscarConFiltros()`. Simplificar pre-filtro geográfico (mantener como safety net, ya no es el filtro principal) | `service/MotorMatchingService.java` |
-| 3.3 | Modificar `generarRecomendacionesStream()` — mismo cambio que 3.2 + reemplazar evento SSE `"keywords"` por evento `"filtros"` con los parámetros BDNS aplicados | `service/MotorMatchingService.java` |
-| 3.4 | Eliminar de `MotorMatchingService`: `generarKeywords()`, `generarKeywordsBasicas()`. Mantener `buscarEnBdns()` como método privado deprecado (fallback por si el filtrado estructurado falla) | `service/MotorMatchingService.java` |
-| 3.5 | Eliminar de `OpenAiMatchingService`: `KEYWORDS_SYSTEM_PROMPT`, `generarKeywordsBusqueda()`, `construirPromptKeywords()`, `parsearKeywords()` (~90 líneas). Mantener intacto todo lo de `analizar()` | `service/OpenAiMatchingService.java` |
-| 3.6 | Actualizar `recomendaciones-stream.js` — handler de evento `"keywords"` → `"filtros"` | `static/javascript/recomendaciones-stream.js` |
-| 3.7 | Test end-to-end: ejecutar análisis con proyecto real y verificar flujo completo | — |
+| Paso | Descripción | Archivos | Estado |
+|------|-------------|----------|--------|
+| 3.1 | Añadir `deduplicarYFiltrarCaducadas()` y `aplicarPreFiltroGeografico()` como helpers compartidos entre ambos métodos públicos | `service/MotorMatchingService.java` | ✅ |
+| 3.2 | Modificar `generarRecomendaciones()` — reemplazar `generarKeywords()` + `buscarEnBdns()` por `BdnsFiltrosBuilder.construir()` + `bdnsClientService.buscarPorFiltros()` | `service/MotorMatchingService.java` | ✅ |
+| 3.3 | Modificar `generarRecomendacionesStream()` — mismo cambio + reemplazar evento SSE `"keywords"` por evento `"filtros"` con descripcion y ccaa | `service/MotorMatchingService.java` | ✅ |
+| 3.4 | Eliminar de `MotorMatchingService`: `generarKeywords()`, `generarKeywordsBasicas()`. Mantener `buscarEnBdns()` como método privado legacy (safety net) | `service/MotorMatchingService.java` | ✅ |
+| 3.5 | Eliminar de `OpenAiMatchingService`: `KEYWORDS_SYSTEM_PROMPT`, `generarKeywordsBusqueda()`, `construirPromptKeywords()`, `parsearKeywords()`, `generarKeywordsBasicas()` (~90 líneas). Mantener intacto `analizar()` | `service/OpenAiMatchingService.java` | ✅ |
+| 3.6 | Actualizar `recomendaciones-stream.js` — handler de evento `"keywords"` → `"filtros"` | `static/javascript/recomendaciones-stream.js` | ✅ |
+| 3.7 | Compilación BUILD SUCCESS + 18 tests passed | — | ✅ |
 
 **Entregable:** Motor BDNS-First funcional, sin dependencia de OpenAI para búsqueda.
 
@@ -103,16 +105,17 @@
 ### FASE 4 — Documentación y limpieza (v4.0.0)
 > **Prioridad:** MEDIA  
 > **Esfuerzo:** 2-3 horas  
-> **Dependencias:** Fases 1-3 completadas
+> **Dependencias:** Fases 1-3 completadas  
+> **Estado:** ✅ COMPLETADA
 
-| Paso | Descripción | Archivos |
-|------|-------------|----------|
-| 4.1 | Actualizar `05-changelog.md` con entradas v3.5.0 y v4.0.0 | `docs/05-changelog.md` |
-| 4.2 | Reescribir `07-fases-implementacion.md` — añadir Fase 7 (Galería Visual) y Fase 8 (BDNS-First), actualizar flujo del motor, actualizar constantes | `docs/07-fases-implementacion.md` |
-| 4.3 | Marcar `12-refactoring-pipeline-motor-busqueda-bdns-first.md` como IMPLEMENTADO | `docs/12-refactoring-...md` |
-| 4.4 | Archivar `09-auditoria-guia-subvenciones.md` — los hallazgos de la auditoría de guía ya están resueltos en v3.4.0+ con el nuevo `OpenAiGuiaService` | `docs/09-...md` |
-| 4.5 | Actualizar `11-flujo-bdns-analisis-tecnico.md` — el flujo BDNS cambió con el refactoring | `docs/11-...md` |
-| 4.6 | Actualizar backlog en `07-fases-implementacion.md` — eliminar B.1 (caché keywords, ya no aplica), actualizar B.2 y B.3 | `docs/07-...md` |
+| Paso | Descripción | Archivos | Estado |
+|------|-------------|----------|--------|
+| 4.1 | Actualizar `05-changelog.md` con entradas v3.5.0, v3.6.0 y v4.0.0 | `docs/05-changelog.md` | ✅ |
+| 4.2 | Reescribir `07-fases-implementacion.md` — añadir Fase 7 (Galería Visual ✅) y Fase 8 (BDNS-First ✅), actualizar flujo del motor v4.0.0, backlog actualizado | `docs/07-fases-implementacion.md` | ✅ |
+| 4.3 | Marcar `12-refactoring-pipeline-motor-busqueda-bdns-first.md` como IMPLEMENTADO | `docs/12-refactoring-...md` | ✅ |
+| 4.4 | Verificar `09-auditoria-guia-subvenciones.md` como ARCHIVADO | `docs/09-...md` | ✅ |
+| 4.5 | Actualizar `11-flujo-bdns-analisis-tecnico.md` — v4.0.0, nivel1/nivel2 como implementados | `docs/11-...md` | ✅ |
+| 4.6 | Backlog en `07-fases-implementacion.md` — B.1 obsoleta, resto actualizado | `docs/07-...md` | ✅ |
 
 ---
 

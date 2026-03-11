@@ -51,12 +51,14 @@
             if (estado) estado.textContent = texto;
         });
 
-        // ── Evento: keywords generadas ──
-        source.addEventListener('keywords', function (e) {
+        // ── Evento: filtros BDNS aplicados (v4.0.0 BDNS-First) ──
+        source.addEventListener('filtros', function (e) {
             try {
                 var data = JSON.parse(e.data);
                 if (detalle) {
-                    detalle.textContent = 'Keywords de búsqueda: ' + data.keywords.join(', ');
+                    var desc = data.descripcion || 'genérica';
+                    var ccaa = data.ccaa || 'Nacional';
+                    detalle.textContent = 'Búsqueda: ' + desc + ' · Ámbito: ' + ccaa;
                 }
             } catch (ignore) {}
         });

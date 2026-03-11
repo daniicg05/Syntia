@@ -5,6 +5,7 @@ import com.syntia.mvp.model.Perfil;
 import com.syntia.mvp.model.Proyecto;
 import com.syntia.mvp.model.Recomendacion;
 import com.syntia.mvp.model.dto.ConvocatoriaDTO;
+import com.syntia.mvp.model.dto.FiltrosBdns;
 import com.syntia.mvp.repository.ConvocatoriaRepository;
 import com.syntia.mvp.repository.RecomendacionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,12 +30,13 @@ import java.util.Map;
 /**
  * Motor de matching de Syntia.
  * <p>
- * Flujo:
+ * Flujo v4.0.0 (BDNS-First):
  * <ol>
- *   <li>OpenAI lee el perfil + proyecto y genera keywords de búsqueda.</li>
- *   <li>Se consulta la API BDNS directamente con esas keywords (sin acumular en BD).</li>
- *   <li>OpenAI evalúa cada resultado y le asigna puntuación 0-100 + explicación.</li>
- *   <li>Solo las convocatorias que superan el umbral se persisten en BD y se guardan como recomendación.</li>
+ *   <li>{@link BdnsFiltrosBuilder} construye filtros determinísticos desde proyecto+perfil (sin IA).</li>
+ *   <li>{@link BdnsClientService#buscarPorFiltros} consulta la API BDNS con parámetros estructurados.</li>
+ *   <li>Deduplicación + pre-filtro geográfico como safety net.</li>
+ *   <li>OpenAI evalúa cada candidata y asigna puntuación 0-100 + explicación + guía.</li>
+ *   <li>Solo las convocatorias ≥ umbral se persisten en BD.</li>
  * </ol>
  */
 @Slf4j
@@ -75,6 +77,9 @@ public class MotorMatchingService {
 
     /**
      * Genera y persiste recomendaciones para un proyecto.
+     * <p>
+     * v4.0.0 — Pipeline BDNS-First: los filtros se construyen determinísticamente
+     * a partir de los campos del proyecto y perfil, sin depender de OpenAI.
      *
      * @param proyecto proyecto del usuario
      * @return lista de recomendaciones ordenadas por puntuación desc
@@ -87,45 +92,24 @@ public class MotorMatchingService {
         // 1. Cargar perfil del usuario
         Perfil perfil = perfilService.obtenerPerfil(proyecto.getUsuario().getId()).orElse(null);
 
-        // 2. OpenAI genera keywords basadas en perfil + proyecto
-        List<String> keywords = generarKeywords(proyecto, perfil);
-        log.info("Keywords generadas para proyecto {}: {}", proyecto.getId(), keywords);
+        // 2. BDNS-First: construir filtros determinísticos (sin IA)
+        FiltrosBdns filtros = BdnsFiltrosBuilder.construir(proyecto, perfil);
+        log.info("BDNS-First filtros para proyecto {}: descripcion='{}' ccaa='{}'",
+                proyecto.getId(), filtros.descripcion(), filtros.nivel2());
 
-        // 3. Buscar en API BDNS directamente con esas keywords (deduplicando por título)
-        Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords, proyecto, perfil);
+        // 3. Buscar en API BDNS con filtros estructurados
+        List<ConvocatoriaDTO> candidatasBdns = bdnsClientService.buscarPorFiltros(filtros);
+        Map<String, ConvocatoriaDTO> candidatasUnicas = deduplicarYFiltrarCaducadas(candidatasBdns);
         log.info("Candidatas únicas obtenidas de BDNS: {}", candidatasUnicas.size());
 
         if (candidatasUnicas.isEmpty()) {
-            log.warn("⚠ BDNS devolvió 0 candidatas para todas las keywords: {}. " +
-                     "¿Está accesible la API de infosubvenciones.es?", keywords);
+            log.warn("⚠ BDNS devolvió 0 candidatas con filtros: {}. " +
+                     "¿Está accesible la API de infosubvenciones.es?", filtros);
         }
 
-        // 4. Pre-filtro geográfico + limitar a MAX_CANDIDATAS_IA
-        String ubicacionUsuario = proyecto.getUbicacion();
-        if ((ubicacionUsuario == null || ubicacionUsuario.isBlank()) && perfil != null) {
-            ubicacionUsuario = perfil.getUbicacion();
-        }
-        List<ConvocatoriaDTO> aEvaluar;
-        if (ubicacionUsuario != null && !ubicacionUsuario.isBlank()) {
-            final String ubiFinal = ubicacionUsuario.toLowerCase().trim();
-            aEvaluar = candidatasUnicas.values().stream()
-                    .filter(dto -> {
-                        String ubiConv = dto.getUbicacion();
-                        if (ubiConv == null || ubiConv.isBlank() || "Nacional".equalsIgnoreCase(ubiConv)) {
-                            return true;
-                        }
-                        return ubiConv.toLowerCase().contains(ubiFinal)
-                                || ubiFinal.contains(ubiConv.toLowerCase());
-                    })
-                    .limit(MAX_CANDIDATAS_IA)
-                    .toList();
-            log.info("Pre-filtro geográfico: {} de {} candidatas pasan (ubicación: {})",
-                    aEvaluar.size(), candidatasUnicas.size(), ubiFinal);
-        } else {
-            aEvaluar = candidatasUnicas.values().stream()
-                    .limit(MAX_CANDIDATAS_IA)
-                    .toList();
-        }
+        // 4. Pre-filtro geográfico (safety net) + limitar a MAX_CANDIDATAS_IA
+        List<ConvocatoriaDTO> aEvaluar = aplicarPreFiltroGeografico(
+                candidatasUnicas, proyecto, perfil);
 
         // 5. Evaluar cada candidata con OpenAI y persistir solo las que superen el umbral
         // Primero obtener todos los detalles en paralelo para reducir latencia
@@ -199,46 +183,80 @@ public class MotorMatchingService {
         }
 
         recomendaciones.sort((a, b) -> Integer.compare(b.getPuntuacion(), a.getPuntuacion()));
-        log.info("Matching completado: proyecto={} keywords={} candidatas={} recomendaciones={}",
-                proyecto.getId(), keywords.size(), aEvaluar.size(), recomendaciones.size());
+        log.info("Matching completado: proyecto={} filtros='{}|{}' candidatas={} recomendaciones={}",
+                proyecto.getId(), filtros.descripcion(), filtros.nivel2(),
+                aEvaluar.size(), recomendaciones.size());
 
         return recomendaciones;
     }
 
-    // ── Keywords ─────────────────────────────────────────────────────────────
+    // ── Helpers BDNS-First (v4.0.0) ─────────────────────────────────────────
 
-    private List<String> generarKeywords(Proyecto proyecto, Perfil perfil) {
-        try {
-            return openAiMatchingService.generarKeywordsBusqueda(proyecto, perfil);
-        } catch (Exception e) {
-            log.warn("Error generando keywords con OpenAI, usando datos básicos del proyecto: {}", e.getMessage());
-            return generarKeywordsBasicas(proyecto, perfil);
+    /**
+     * Deduplica una lista de ConvocatoriaDTO por idBdns + título, y descarta caducadas.
+     *
+     * @param candidatas lista bruta de BDNS
+     * @return mapa título→DTO deduplicado, sin caducadas
+     */
+    private Map<String, ConvocatoriaDTO> deduplicarYFiltrarCaducadas(List<ConvocatoriaDTO> candidatas) {
+        Map<String, ConvocatoriaDTO> resultado = new LinkedHashMap<>();
+        java.util.Set<String> idsBdnsVistos = new java.util.HashSet<>();
+        LocalDate hoy = LocalDate.now();
+        for (ConvocatoriaDTO dto : candidatas) {
+            if (dto.getTitulo() == null) continue;
+            if (dto.getIdBdns() != null && !dto.getIdBdns().isBlank()) {
+                if (idsBdnsVistos.contains(dto.getIdBdns())) continue;
+                idsBdnsVistos.add(dto.getIdBdns());
+            }
+            if (resultado.containsKey(dto.getTitulo())) continue;
+            if (dto.getFechaCierre() != null && dto.getFechaCierre().isBefore(hoy)) {
+                log.debug("Descartada por caducada: '{}' cierre={}", dto.getTitulo(), dto.getFechaCierre());
+                continue;
+            }
+            resultado.put(dto.getTitulo(), dto);
         }
+        return resultado;
     }
 
-    private List<String> generarKeywordsBasicas(Proyecto proyecto, Perfil perfil) {
-        List<String> kw = new ArrayList<>();
-        if (proyecto != null) {
-            if (proyecto.getSector() != null && !proyecto.getSector().isBlank())
-                kw.add(proyecto.getSector());
-            if (proyecto.getNombre() != null && !proyecto.getNombre().isBlank())
-                kw.add(proyecto.getNombre());
-            if (proyecto.getUbicacion() != null && !proyecto.getUbicacion().isBlank())
-                kw.add("subvencion " + proyecto.getUbicacion());
+    /**
+     * Aplica pre-filtro geográfico en memoria como segunda capa de seguridad.
+     * Descarta convocatorias autonómicas cuya ubicación no coincide con la del usuario.
+     * Limita a MAX_CANDIDATAS_IA.
+     *
+     * @param candidatasUnicas mapa de candidatas deduplicadas
+     * @param proyecto         proyecto del usuario
+     * @param perfil           perfil del usuario (puede ser null)
+     * @return lista filtrada limitada a MAX_CANDIDATAS_IA
+     */
+    private List<ConvocatoriaDTO> aplicarPreFiltroGeografico(
+            Map<String, ConvocatoriaDTO> candidatasUnicas, Proyecto proyecto, Perfil perfil) {
+        String ubicacionUsuario = proyecto.getUbicacion();
+        if ((ubicacionUsuario == null || ubicacionUsuario.isBlank()) && perfil != null) {
+            ubicacionUsuario = perfil.getUbicacion();
         }
-        if (perfil != null) {
-            if (perfil.getTipoEntidad() != null && !perfil.getTipoEntidad().isBlank())
-                kw.add(perfil.getTipoEntidad() + " subvencion");
-            if (perfil.getSector() != null && !perfil.getSector().isBlank())
-                kw.add("ayuda " + perfil.getSector());
+        if (ubicacionUsuario != null && !ubicacionUsuario.isBlank()) {
+            final String ubiFinal = ubicacionUsuario.toLowerCase().trim();
+            List<ConvocatoriaDTO> filtradas = candidatasUnicas.values().stream()
+                    .filter(dto -> {
+                        String ubiConv = dto.getUbicacion();
+                        if (ubiConv == null || ubiConv.isBlank() || "Nacional".equalsIgnoreCase(ubiConv)) {
+                            return true;
+                        }
+                        return ubiConv.toLowerCase().contains(ubiFinal)
+                                || ubiFinal.contains(ubiConv.toLowerCase());
+                    })
+                    .limit(MAX_CANDIDATAS_IA)
+                    .toList();
+            log.info("Pre-filtro geográfico: {} de {} candidatas pasan (ubicación: {})",
+                    filtradas.size(), candidatasUnicas.size(), ubiFinal);
+            return filtradas;
         }
-        // Fallbacks genéricos siempre útiles
-        kw.add("subvencion pyme");
-        kw.add("ayuda empresa innovacion");
-        return kw;
+        return candidatasUnicas.values().stream()
+                .limit(MAX_CANDIDATAS_IA)
+                .toList();
     }
 
-    // ── Búsqueda en BDNS ─────────────────────────────────────────────────────
+    // ── Búsqueda en BDNS (legacy, mantenido como fallback) ────────────────────
 
     /**
      * Busca en la API BDNS con cada keyword y devuelve un mapa título→DTO deduplicado.
@@ -393,60 +411,35 @@ public class MotorMatchingService {
             // 2. Cargar perfil
             Perfil perfil = perfilService.obtenerPerfil(proyecto.getUsuario().getId()).orElse(null);
 
-            // 3. Generar keywords con OpenAI
-            enviarEvento(emitter, "estado", "🔍 Analizando tu proyecto con IA...");
-            List<String> keywords = generarKeywords(proyecto, perfil);
-            log.info("SSE: Keywords generadas para proyecto {}: {}", proyecto.getId(), keywords);
-            enviarEvento(emitter, "keywords",
-                    Map.of("total", keywords.size(), "keywords", keywords));
+            // 3. BDNS-First: construir filtros determinísticos (sin IA)
+            enviarEvento(emitter, "estado", "🔍 Analizando tu proyecto...");
+            FiltrosBdns filtros = BdnsFiltrosBuilder.construir(proyecto, perfil);
+            log.info("SSE BDNS-First: proyecto={} descripcion='{}' ccaa='{}'",
+                    proyecto.getId(), filtros.descripcion(), filtros.nivel2());
+            enviarEvento(emitter, "filtros",
+                    Map.of("descripcion", filtros.descripcion() != null ? filtros.descripcion() : "",
+                           "ccaa", filtros.nivel2() != null ? filtros.nivel2() : "Nacional"));
 
-            // 4. Buscar en BDNS
+            // 4. Buscar en BDNS con filtros estructurados
             enviarEvento(emitter, "estado", "🌐 Buscando convocatorias en la BDNS...");
-            Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords, proyecto, perfil);
+            List<ConvocatoriaDTO> candidatasBdns = bdnsClientService.buscarPorFiltros(filtros);
+            Map<String, ConvocatoriaDTO> candidatasUnicas = deduplicarYFiltrarCaducadas(candidatasBdns);
             log.info("SSE: Candidatas únicas obtenidas de BDNS: {}", candidatasUnicas.size());
             enviarEvento(emitter, "busqueda",
                     Map.of("candidatas", candidatasUnicas.size()));
 
             if (candidatasUnicas.isEmpty()) {
                 enviarEvento(emitter, "estado",
-                        "⚠️ No se encontraron convocatorias vigentes para tus keywords.");
+                        "⚠️ No se encontraron convocatorias vigentes para tu perfil.");
                 enviarEvento(emitter, "completado",
                         Map.of("totalRecomendaciones", 0, "totalEvaluadas", 0,
                                "descartadas", 0, "errores", 0));
                 return;
             }
 
-            // 5. Pre-filtro geográfico (ahorra evaluaciones IA innecesarias)
-            String ubicacionUsuario = proyecto.getUbicacion();
-            if ((ubicacionUsuario == null || ubicacionUsuario.isBlank()) && perfil != null) {
-                ubicacionUsuario = perfil.getUbicacion();
-            }
-            List<ConvocatoriaDTO> candidatasFiltradas;
-            if (ubicacionUsuario != null && !ubicacionUsuario.isBlank()) {
-                final String ubiFinal = ubicacionUsuario.toLowerCase().trim();
-                candidatasFiltradas = candidatasUnicas.values().stream()
-                        .filter(dto -> {
-                            String ubiConv = dto.getUbicacion();
-                            if (ubiConv == null || ubiConv.isBlank() || "Nacional".equalsIgnoreCase(ubiConv)) {
-                                return true; // Nacionales siempre pasan
-                            }
-                            // Si la convocatoria es autonómica, verificar compatibilidad
-                            return ubiConv.toLowerCase().contains(ubiFinal)
-                                    || ubiFinal.contains(ubiConv.toLowerCase());
-                        })
-                        .limit(MAX_CANDIDATAS_IA)
-                        .toList();
-                int descartadasGeo = candidatasUnicas.size() - candidatasFiltradas.size();
-                if (descartadasGeo > 0) {
-                    log.info("SSE: Pre-filtro geográfico descartó {} candidatas (ubicación: {})",
-                            descartadasGeo, ubiFinal);
-                }
-            } else {
-                candidatasFiltradas = candidatasUnicas.values().stream()
-                        .limit(MAX_CANDIDATAS_IA)
-                        .toList();
-            }
-            List<ConvocatoriaDTO> aEvaluar = candidatasFiltradas;
+            // 5. Pre-filtro geográfico (safety net)
+            List<ConvocatoriaDTO> aEvaluar = aplicarPreFiltroGeografico(
+                    candidatasUnicas, proyecto, perfil);
             enviarEvento(emitter, "estado",
                     "🤖 Evaluando " + aEvaluar.size() + " convocatorias con IA...");
 

@@ -1,8 +1,12 @@
 # 12 – Refactoring del Pipeline del Motor de Búsqueda: BDNS-First
 
-**Versión analizada:** v3.0.0  
+**Versión analizada:** v3.0.0 → **Implementado en v4.0.0**  
 **Fecha:** 2026-03-11  
-**Estado:** ✅ Análisis completado — Implementación planificada en `13-plan-fases-v4.md` (Fases 2-3)
+**Estado:** ✅ **IMPLEMENTADO** — Ver `docs/13-plan-fases-v4.md` (Fases 2-3, ambas completadas)
+
+> Este documento fue el análisis previo que sirvió de base para el refactoring BDNS-First.
+> Los cambios propuestos se implementaron completamente en v4.0.0.
+> Para el estado actual del código, consultar `07-fases-implementacion.md` y `05-changelog.md`.
 
 ---
 

@@ -207,6 +207,148 @@ public class BdnsClientService {
     // ── Detalle enriquecido de una convocatoria ──────────────────────────────
 
     /**
+     * Busca convocatorias usando filtros estructurados construidos por {@link BdnsFiltrosBuilder}.
+     * <p>
+     * Estrategia de búsqueda:
+     * <ol>
+     *   <li>Si hay CCAA: dos búsquedas paralelas (ESTADO + AUTONOMICA de esa CCAA), max 20 resultados</li>
+     *   <li>Si no hay CCAA: una sola búsqueda con descripción, max 20 resultados</li>
+     * </ol>
+     * <p>
+     * Fallback progresivo si se obtienen menos de {@code MIN_RESULTADOS} (3):
+     * <ol>
+     *   <li>Relajar: quitar filtro de descripción (mantener territorio)</li>
+     *   <li>Relajar más: quitar filtro territorial (solo descripción)</li>
+     * </ol>
+     *
+     * @param filtros filtros estructurados (descripcion, nivel1, nivel2)
+     * @return lista deduplicada de ConvocatoriaDTO
+     * @see BdnsFiltrosBuilder#construir(com.syntia.mvp.model.Proyecto, com.syntia.mvp.model.Perfil)
+     */
+    // @inferido — nivel1/nivel2 son parámetros observados en el portal Angular de BDNS, no documentados oficialmente
+    public List<ConvocatoriaDTO> buscarPorFiltros(com.syntia.mvp.model.dto.FiltrosBdns filtros) {
+        if (filtros == null || !filtros.tieneAlgunFiltro()) {
+            log.warn("BDNS buscarPorFiltros: filtros vacíos, usando búsqueda genérica");
+            return buscarPorTexto("subvencion pyme", 0, 20);
+        }
+
+        log.info("BDNS buscarPorFiltros: descripcion='{}' ccaa='{}'",
+                filtros.descripcion(), filtros.nivel2());
+
+        // Búsqueda principal
+        List<ConvocatoriaDTO> resultados = ejecutarBusquedaFiltrada(filtros);
+        log.info("BDNS filtros principal: {} resultados", resultados.size());
+
+        // Fallback progresivo si pocos resultados
+        if (resultados.size() < MIN_RESULTADOS_FALLBACK) {
+            // Nivel 1 de fallback: quitar descripción, mantener territorio
+            if (filtros.descripcion() != null && filtros.nivel2() != null) {
+                log.info("BDNS fallback nivel 1: relajando descripción (manteniendo CCAA='{}')", filtros.nivel2());
+                List<ConvocatoriaDTO> fallback1 = ejecutarBusquedaFiltrada(filtros.sinDescripcion());
+                resultados = combinarYDeduplicar(resultados, fallback1);
+                log.info("BDNS tras fallback 1: {} resultados", resultados.size());
+            }
+
+            // Nivel 2 de fallback: quitar territorio, solo descripción
+            if (resultados.size() < MIN_RESULTADOS_FALLBACK && filtros.nivel2() != null) {
+                log.info("BDNS fallback nivel 2: relajando territorio (solo descripcion='{}')", filtros.descripcion());
+                List<ConvocatoriaDTO> fallback2 = ejecutarBusquedaFiltrada(filtros.sinTerritorio());
+                resultados = combinarYDeduplicar(resultados, fallback2);
+                log.info("BDNS tras fallback 2: {} resultados", resultados.size());
+            }
+        }
+
+        return resultados;
+    }
+
+    /** Mínimo de resultados antes de activar el fallback progresivo. */
+    private static final int MIN_RESULTADOS_FALLBACK = 3;
+
+    /**
+     * Ejecuta la búsqueda real contra la API BDNS según los filtros.
+     * Si hay ccaa, hace doble búsqueda paralela ESTADO+AUTONOMICA.
+     */
+    private List<ConvocatoriaDTO> ejecutarBusquedaFiltrada(com.syntia.mvp.model.dto.FiltrosBdns filtros) {
+        String ccaa = filtros.nivel2();
+        String desc = filtros.descripcion();
+
+        // Si hay CCAA → doble búsqueda paralela
+        if (ccaa != null) {
+            List<ConvocatoriaDTO> combinadas = new CopyOnWriteArrayList<>();
+            String ccaaEncoded = URLEncoder.encode(ccaa, StandardCharsets.UTF_8);
+
+            @SuppressWarnings("resource")
+            ExecutorService executor = Executors.newCachedThreadPool();
+            try {
+                // Llamada A: convocatorias estatales
+                CompletableFuture<Void> futuroEstatal = CompletableFuture.runAsync(() -> {
+                    try {
+                        String url = BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=0&tamPag=10&vigente=true&nivel1=ESTADO";
+                        if (desc != null) url += "&descripcion=" + URLEncoder.encode(desc, StandardCharsets.UTF_8) + "&descripcionTipoBusqueda=1";
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> respuesta = restClient.get().uri(url).retrieve().body(Map.class);
+                        if (respuesta != null) combinadas.addAll(mapearRespuesta(respuesta));
+                    } catch (Exception e) {
+                        log.warn("BDNS filtros ESTADO: {}", e.getMessage());
+                    }
+                }, executor);
+
+                // Llamada B: convocatorias autonómicas de la CCAA
+                CompletableFuture<Void> futuroAutonomica = CompletableFuture.runAsync(() -> {
+                    try {
+                        String url = BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=0&tamPag=10&vigente=true&nivel1=AUTONOMICA&nivel2=" + ccaaEncoded;
+                        if (desc != null) url += "&descripcion=" + URLEncoder.encode(desc, StandardCharsets.UTF_8) + "&descripcionTipoBusqueda=1";
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> respuesta = restClient.get().uri(url).retrieve().body(Map.class);
+                        if (respuesta != null) combinadas.addAll(mapearRespuesta(respuesta));
+                    } catch (Exception e) {
+                        log.warn("BDNS filtros AUTONOMICA ccaa='{}': {}", ccaa, e.getMessage());
+                    }
+                }, executor);
+
+                CompletableFuture.allOf(futuroEstatal, futuroAutonomica).join();
+            } finally {
+                executor.shutdown();
+            }
+
+            return deduplicarPorIdBdns(combinadas);
+        }
+
+        // Sin CCAA → búsqueda simple con descripción
+        if (desc != null) {
+            return buscarPorTexto(desc, 0, 20);
+        }
+
+        // Ni CCAA ni descripción → genérico
+        return buscarPorTexto("subvencion pyme", 0, 20);
+    }
+
+    /**
+     * Combina dos listas y deduplica por idBdns.
+     */
+    private List<ConvocatoriaDTO> combinarYDeduplicar(List<ConvocatoriaDTO> lista1, List<ConvocatoriaDTO> lista2) {
+        List<ConvocatoriaDTO> combinada = new ArrayList<>(lista1);
+        combinada.addAll(lista2);
+        return deduplicarPorIdBdns(combinada);
+    }
+
+    /**
+     * Deduplica una lista de ConvocatoriaDTO por idBdns.
+     */
+    private List<ConvocatoriaDTO> deduplicarPorIdBdns(List<ConvocatoriaDTO> lista) {
+        Set<String> vistos = new HashSet<>();
+        List<ConvocatoriaDTO> resultado = new ArrayList<>();
+        for (ConvocatoriaDTO dto : lista) {
+            if (dto.getIdBdns() != null && !dto.getIdBdns().isBlank()) {
+                if (vistos.contains(dto.getIdBdns())) continue;
+                vistos.add(dto.getIdBdns());
+            }
+            resultado.add(dto);
+        }
+        return resultado;
+    }
+
+    /**
      * Obtiene el texto enriquecido de una convocatoria BDNS a partir de su ID interno.
      * Llama al endpoint de detalle de la API BDNS y extrae todos los campos de texto
      * relevantes (objeto, beneficiarios, bases reguladoras, requisitos, dotación...).

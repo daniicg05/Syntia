@@ -6,6 +6,7 @@ import com.syntia.mvp.model.Usuario;
 import com.syntia.mvp.model.dto.GuiaSubvencionDTO;
 import com.syntia.mvp.model.dto.RecomendacionDTO;
 import com.syntia.mvp.service.BdnsClientService;
+import com.syntia.mvp.service.BusquedaRapidaService;
 import com.syntia.mvp.service.MotorMatchingService;
 import com.syntia.mvp.service.OpenAiGuiaService;
 import com.syntia.mvp.service.PerfilService;
@@ -42,6 +43,7 @@ public class RecomendacionController {
 
     private final RecomendacionService recomendacionService;
     private final MotorMatchingService motorMatchingService;
+    private final BusquedaRapidaService busquedaRapidaService;
     private final ProyectoService proyectoService;
     private final UsuarioService usuarioService;
     private final OpenAiGuiaService openAiGuiaService;
@@ -50,6 +52,7 @@ public class RecomendacionController {
 
     public RecomendacionController(RecomendacionService recomendacionService,
                                    MotorMatchingService motorMatchingService,
+                                   BusquedaRapidaService busquedaRapidaService,
                                    ProyectoService proyectoService,
                                    UsuarioService usuarioService,
                                    OpenAiGuiaService openAiGuiaService,
@@ -57,6 +60,7 @@ public class RecomendacionController {
                                    BdnsClientService bdnsClientService) {
         this.recomendacionService = recomendacionService;
         this.motorMatchingService = motorMatchingService;
+        this.busquedaRapidaService = busquedaRapidaService;
         this.proyectoService = proyectoService;
         this.usuarioService = usuarioService;
         this.openAiGuiaService = openAiGuiaService;
@@ -101,6 +105,40 @@ public class RecomendacionController {
         model.addAttribute("filtrUbicacion", ubicacion);
         model.addAttribute("usuario", usuario);
         return "usuario/proyectos/recomendaciones";
+    }
+
+    /**
+     * Busca convocatorias en BDNS por sector y ubicación, sin usar IA.
+     * Las guarda como candidatas (puntuación 0, sin evaluar) que el usuario
+     * puede ver inmediatamente. Luego puede pedir "Analizar con IA" para evaluarlas.
+     */
+    @PostMapping("/buscar-candidatas")
+    public String buscarCandidatas(@PathVariable Long proyectoId,
+                                    Authentication authentication,
+                                    RedirectAttributes redirectAttributes) {
+
+        Usuario usuario = resolverUsuario(authentication);
+        Proyecto proyecto = proyectoService.obtenerPorId(proyectoId, usuario.getId());
+
+        try {
+            int encontradas = busquedaRapidaService.buscarYGuardarCandidatas(proyecto);
+
+            if (encontradas == 0) {
+                redirectAttributes.addFlashAttribute("aviso",
+                        "No se encontraron convocatorias vigentes para tu sector y ubicación. "
+                        + "Prueba a completar o cambiar el sector y la ubicación de tu proyecto.");
+            } else {
+                redirectAttributes.addFlashAttribute("exito",
+                        "Se han encontrado " + encontradas + " convocatorias para tu perfil. "
+                        + "Pulsa 'Analizar con IA' para obtener puntuación y guía detallada.");
+            }
+        } catch (BdnsClientService.BdnsException e) {
+            redirectAttributes.addFlashAttribute("aviso",
+                    "No se pudo conectar con la Base de Datos Nacional de Subvenciones (BDNS). "
+                    + "Inténtalo de nuevo más tarde.");
+        }
+
+        return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";
     }
 
     /**

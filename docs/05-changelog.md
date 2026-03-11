@@ -8,6 +8,121 @@ Formato de cada entrada:
 
 ---
 
+## [4.1.0] – 2026-03-11
+
+### Búsqueda rápida: convocatorias sin IA
+
+#### Nuevo servicio
+- `BusquedaRapidaService.java` (`com.syntia.mvp.service`) — Busca convocatorias en BDNS usando solo sector + ubicación del proyecto/perfil, sin consumir tokens de OpenAI. Persiste candidatas como recomendaciones con `puntuacion=0` y `usadaIa=false`. Respeta deduplicación, filtro geográfico y control de caducadas. No borra las recomendaciones evaluadas por IA (solo limpia las candidatas sin evaluar anteriores).
+
+#### Nuevos métodos en repositorio
+- `RecomendacionRepository.deleteByProyectoIdAndUsadaIaFalse()` — Elimina solo candidatas no evaluadas por IA
+- `RecomendacionRepository.findByProyectoId()` — Lista todas las recomendaciones con JOIN FETCH
+
+#### Nuevo endpoint
+- `POST /usuario/proyectos/{id}/recomendaciones/buscar-candidatas` — Ejecuta búsqueda rápida, redirige con mensaje de resultado
+
+#### Cambios en vista (`recomendaciones.html`)
+- **Nuevo botón:** `🔎 Buscar convocatorias` — búsqueda instantánea sin IA (~2-4s)
+- **Diferenciación visual de tarjetas:**
+  - Candidatas BDNS (sin evaluar): borde izquierdo amarillo, icono 🔎, badge "Candidata BDNS", sin puntuación, sin botones de guía, texto invitando a "Analizar con IA"
+  - Recomendaciones IA (evaluadas): diseño original con puntuación, barras de progreso, botones de guía y galería visual
+- **Modal de guía:** solo se renderiza para recomendaciones evaluadas por IA (`th:if="${rec.usadaIa}"`)
+- **Estado vacío actualizado:** explica ambos botones al usuario
+
+#### Flujo de usuario
+```
+1. Usuario guarda proyecto (sector + ubicación)
+2. Click "🔎 Buscar convocatorias" → 2-4s → ve candidatas BDNS (borde amarillo, sin puntuar)
+3. Click "🤖 Analizar con IA" → 20-35s → candidatas se convierten en recomendaciones con puntuación + guía
+```
+
+#### Entorno verificado
+- **Compilación:** `mvn clean test` → BUILD SUCCESS
+- **Tests:** 18 passed, 0 failures
+
+**Autor(es):** Diego
+
+---
+
+## [4.0.0] – 2026-03-11
+
+### BDNS-First: Motor sin dependencia de OpenAI para búsqueda (FASE 3)
+
+> **BREAKING CHANGE:** El motor ya no usa OpenAI para generar keywords de búsqueda.
+> Los filtros se construyen determinísticamente desde los campos del proyecto y perfil.
+> OpenAI solo se usa para la evaluación semántica de cada candidata (scoring + guía).
+
+#### Archivos modificados
+- `MotorMatchingService.java` — **Refactoring completo del flujo de búsqueda:**
+  - `generarRecomendaciones()`: reemplaza `generarKeywords()` + `buscarEnBdns()` por `BdnsFiltrosBuilder.construir()` + `bdnsClientService.buscarPorFiltros()`
+  - `generarRecomendacionesStream()`: mismo cambio + evento SSE `"filtros"` en vez de `"keywords"`
+  - Nuevos helpers extraídos: `deduplicarYFiltrarCaducadas()`, `aplicarPreFiltroGeografico()` (compartidos entre ambos métodos públicos)
+  - Eliminados: `generarKeywords()`, `generarKeywordsBasicas()` (sustituidos por BdnsFiltrosBuilder)
+  - Mantenido: `buscarEnBdns()` como método legacy privado (safety net)
+  - JavaDoc actualizado para pipeline v4.0.0
+
+- `OpenAiMatchingService.java` — **~90 líneas eliminadas:**
+  - Eliminado: `KEYWORDS_SYSTEM_PROMPT` (text block de 12 líneas)
+  - Eliminado: `generarKeywordsBusqueda()`, `construirPromptKeywords()`, `parsearKeywords()`, `generarKeywordsBasicas()` (4 métodos, ~75 líneas)
+  - Eliminados imports: `ArrayList`, `List`, `Optional`
+  - Mantenido intacto: `analizar()`, `SYSTEM_PROMPT`, `construirPrompt()`, `parsearRespuesta()`, `ResultadoIA`
+
+- `recomendaciones-stream.js` — Handler SSE `'keywords'` → `'filtros'`: muestra "Búsqueda: {descripcion} · Ámbito: {ccaa}" en vez de la lista de keywords
+
+#### Pipeline resultante (v4.0.0)
+```
+Proyecto + Perfil
+      ↓
+BdnsFiltrosBuilder → FiltrosBdns { descripcion, nivel2(ccaa) }  [0 tokens, 0 latencia]
+      ↓
+BdnsClientService.buscarPorFiltros() → paralelo ESTADO+AUTONOMICA + fallback progresivo
+      ↓
+Deduplicación idBdns + título + descarte caducadas
+      ↓
+Pre-filtro geográfico (safety net en memoria)
+      ↓
+Detalles BDNS en paralelo (CompletableFuture.allOf, 10 hilos)
+      ↓
+OpenAI evalúa cada candidata → puntuación + explicación + guía
+      ↓
+Persistencia selectiva (≥ 20 puntos)
+```
+
+#### Entorno de compilación verificado
+- **Compilación Maven:** `BUILD SUCCESS`, exit code `0`
+- **Tests:** 18 passed, 0 failures, 0 errors
+
+**Autor(es):** Diego
+
+---
+
+## [3.6.0] – 2026-03-11
+
+### Pipeline BDNS-First: Infraestructura de Filtros Estructurados (FASE 2)
+
+#### Nuevos archivos creados
+- `SectorNormalizador.java` (`com.syntia.mvp.service`) — Clase utilitaria estática con mapeo de 50+ sectores de texto libre a términos de búsqueda BDNS optimizados. Cubre: tecnología, digitalización, energía, agroalimentario, industria, comercio, cultura, salud, social, I+D+i, emprendimiento, internacionalización, empleo. Fallback inteligente: sectores no reconocidos se usan como texto libre prefijado con "subvencion".
+- `FiltrosBdns.java` (`com.syntia.mvp.model.dto`) — Record inmutable Java 17 con 3 campos: `descripcion`, `nivel1`, `nivel2`. Incluye métodos de fallback progresivo: `sinDescripcion()` (relaja texto, mantiene territorio) y `sinTerritorio()` (relaja territorio, mantiene texto). Helper `tieneAlgunFiltro()`.
+- `BdnsFiltrosBuilder.java` (`com.syntia.mvp.service`) — Clase utilitaria que construye `FiltrosBdns` a partir de `Proyecto` + `Perfil`. Prioridad: sector proyecto → sector perfil → nombre proyecto → fallback genérico. Ubicación: proyecto → perfil → null. Usa `SectorNormalizador` + `UbicacionNormalizador`.
+- `BdnsFirstPipelineTest.java` (`com.syntia.mvp.service`) — 17 tests unitarios: 7 para `SectorNormalizador` (conocido, variante, desconocido, null, blank, reconocimiento, principales), 4 para `FiltrosBdns` (campos, vacío, sinDescripcion, sinTerritorio), 6 para `BdnsFiltrosBuilder` (completo, fallback ubicación, fallback sector, fallback nombre, nacional, perfil null).
+
+#### Archivos modificados
+- `BdnsClientService.java` — Nuevo método `buscarPorFiltros(FiltrosBdns)` con:
+  - Si hay CCAA: doble búsqueda paralela ESTADO (tamPag=10) + AUTONOMICA (tamPag=10) con `CompletableFuture.allOf()`
+  - Si no hay CCAA: búsqueda simple con descripción (tamPag=20)
+  - Fallback progresivo: si < 3 resultados → relajar descripción → si sigue < 3 → relajar territorio
+  - Deduplicación por `idBdns` en todas las combinaciones
+  - Métodos auxiliares: `ejecutarBusquedaFiltrada()`, `combinarYDeduplicar()`, `deduplicarPorIdBdns()`
+
+#### Entorno de compilación verificado
+- **Compilación Maven:** `BUILD SUCCESS`, exit code `0`
+- **Tests:** 18 passed (17 nuevos + 1 existente), 0 failures, 0 errors
+
+**Autor(es):** Diego
+
+---
+
 ## [3.5.0] – 2026-03-11
 
 ### Galería Visual Interactiva — Mockups Realistas de Portales Gubernamentales

@@ -1,9 +1,12 @@
 # Informe Técnico — Flujo BDNS: Análisis End-to-End
 
-> **Fecha:** 2026-03-10  
-> **Versión analizada:** v3.3.0  
+> **Fecha:** 2026-03-11  
+> **Versión analizada:** v4.0.0 (BDNS-First)  
+> **Actualizado desde:** v3.3.0  
 > **Autor:** Arquitecto Senior — Integración BDNS y optimización IA  
-> **Fuentes:** Código real de `BdnsClientService.java`, `MotorMatchingService.java`, `OpenAiMatchingService.java`, `OpenAiClient.java`, modelos JPA y DTOs. Las inferencias sobre la API BDNS se marcan con ⚠️ *[inferido]*.
+> **Fuentes:** Código real de `BdnsClientService.java`, `MotorMatchingService.java`, `OpenAiMatchingService.java`, `SectorNormalizador.java`, `BdnsFiltrosBuilder.java`, `FiltrosBdns.java`. Las inferencias sobre la API BDNS se marcan con ⚠️ *[inferido]*.
+
+> **Nota v4.0.0:** El pipeline cambió fundamentalmente. La búsqueda ya no depende de OpenAI para generar keywords. Los filtros se construyen determinísticamente desde los campos del proyecto y perfil. Ver `docs/13-plan-fases-v4.md` para el plan de implementación.
 
 ---
 
@@ -37,17 +40,17 @@ GET https://www.infosubvenciones.es/bdnstrans/api/convocatorias/{id}
 | `descripcionTipoBusqueda` | `1` | Tipo: `1`=contiene todas las palabras | ❌ Opcional |
 | `vigente` | `true` | Solo convocatorias con plazo abierto | ❌ Opcional |
 
-**Parámetros adicionales que acepta la API pero que Syntia NO usa actualmente:**
+**Parámetros adicionales que acepta la API — estado de implementación:**
 
-| Parámetro | Posible uso | ¿Por qué no se usa? |
-|-----------|------------|---------------------|
-| `nivel1` | Filtrar por ámbito: `ESTADO`, `AUTONOMICA`, `LOCAL` | No implementado aún |
-| `nivel2` | Filtrar por CCAA específica | No implementado aún |
-| `nivel3` | Filtrar por organismo | No implementado aún |
-| `fechaDesde` | Fecha de publicación mínima | No implementado aún |
-| `fechaHasta` | Fecha de publicación máxima | No implementado aún |
-| `importeDesde` | Importe mínimo de la dotación | No implementado aún |
-| `importeHasta` | Importe máximo de la dotación | No implementado aún |
+| Parámetro | Uso | Estado v4.0.0 |
+|-----------|-----|---------------|
+| `nivel1` | Filtrar por ámbito: `ESTADO`, `AUTONOMICA`, `LOCAL` | ✅ Implementado en `buscarPorFiltros()` y `buscarPorTextoFiltrado()` |
+| `nivel2` | Filtrar por CCAA específica (ej: "Comunidad Valenciana") | ✅ Implementado via `UbicacionNormalizador` |
+| `nivel3` | Filtrar por organismo concreto | ❌ No implementado |
+| `fechaDesde` | Fecha de publicación mínima | ❌ No implementado |
+| `fechaHasta` | Fecha de publicación máxima | ❌ No implementado |
+| `importeDesde` | Importe mínimo de la dotación | ❌ No implementado |
+| `importeHasta` | Importe máximo de la dotación | ❌ No implementado |
 | `tipoConvocatoria` | Tipo: subvención, beca, licitación... | No implementado aún |
 | `sortField` | Campo de ordenación | No implementado aún |
 | `sortDir` | Dirección: `asc`, `desc` | No implementado aún |
