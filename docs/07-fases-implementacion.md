@@ -1,6 +1,7 @@
 # Plan de Implementación por Fases: Syntia
 
-> Documento actualizado el **2026-03-10**. Refleja el estado real del código.
+> Documento actualizado el **2026-03-11**. Refleja el estado real del código hasta v3.4.0.
+> Plan de implementación v4.0.0 detallado en `docs/13-plan-fases-v4.md`.
 > Repositorio: https://github.com/daniicg05/Syntia.git
 
 ---
@@ -204,19 +205,53 @@ openai.temperature=0.1              # Determinismo alto
 
 ## Próximas Mejoras (Backlog)
 
-| # | Mejora | Prioridad |
-|---|--------|-----------|
-| B.1 | Caché de keywords por proyecto (Caffeine, 24h TTL) | Alta |
-| B.2 | Caché de detalles BDNS (Caffeine, 1h TTL) | Alta |
-| B.3 | Paralelizar evaluaciones OpenAI con CompletableFuture.supplyAsync() | Alta |
-| B.4 | Rate limiting por usuario (cooldown 60s por proyecto) | Alta |
-| B.5 | Tests de integración automatizados (JUnit 5 + MockMvc) | Alta |
-| B.6 | System prompt compacto (~200 tokens en lugar de ~500) | Media |
-| B.7 | Pre-screening con gpt-4.1-mini (barato) antes de gpt-4.1 | Media |
-| B.8 | Batch evaluation (3 convocatorias por prompt) | Media |
-| B.9 | Alertas automáticas por email cuando aparezcan nuevas convocatorias compatibles | Media |
-| B.10 | Exportación de recomendaciones en PDF | Media |
-| B.11 | Rehabilitar CSRF para formularios Thymeleaf | Baja |
-| B.12 | Estimación de probabilidad de éxito según perfil histórico | Baja |
-| B.13 | Integración con fuentes europeas (Horizon Europe, FEDER) | Baja |
+> **Nota:** La implementación BDNS-First (doc 13) eliminará la generación de keywords con IA,
+> por lo que B.1 (caché de keywords) ya no aplicará.
 
+| # | Mejora | Prioridad | Estado |
+|---|--------|-----------|--------|
+| ~~B.1~~ | ~~Caché de keywords por proyecto (Caffeine, 24h TTL)~~ | ~~Alta~~ | ❌ Obsoleta (BDNS-First elimina keywords) |
+| B.2 | Caché de detalles BDNS (Caffeine, 1h TTL) | Alta | Pendiente |
+| B.3 | Paralelizar evaluaciones OpenAI con CompletableFuture.supplyAsync() | Alta | Pendiente |
+| B.4 | Rate limiting por usuario (cooldown 60s por proyecto) | Alta | Pendiente |
+| B.5 | Tests de integración automatizados (JUnit 5 + MockMvc) | Alta | Pendiente |
+| B.6 | System prompt compacto (~200 tokens en lugar de ~500) | Media | Pendiente |
+| B.7 | Pre-screening con gpt-4.1-mini (barato) antes de gpt-4.1 | Media | Pendiente |
+| B.8 | Batch evaluation (3 convocatorias por prompt) | Media | Pendiente |
+| B.9 | Alertas automáticas por email cuando aparezcan nuevas convocatorias | Media | Pendiente |
+| B.10 | Exportación de recomendaciones en PDF | Media | Pendiente |
+| B.11 | Rehabilitar CSRF para formularios Thymeleaf | Baja | Pendiente |
+| B.12 | Estimación de probabilidad de éxito según perfil histórico | Baja | Pendiente |
+| B.13 | Integración con fuentes europeas (Horizon Europe, FEDER) | Baja | Pendiente |
+
+---
+
+## Fase 7 – Galería Visual Interactiva (v3.5.0)
+> **Estado:** ✅ COMPLETADA
+> **Plan detallado:** `docs/13-plan-fases-v4.md` — FASE 1
+
+| # | Funcionalidad | Estado |
+|---|--------------|--------|
+| 7.1 | Mapa PORTALES_GOB unificado (sin duplicación PORTALES_LB) | ✅ |
+| 7.2 | Sedes autonómicas y ministeriales (6 CCAA + matcher inteligente) | ✅ |
+| 7.3 | Matcher inteligente por subdominio `.gob.es` / `.es` | ✅ |
+| 7.4 | user_action de IA priorizado sobre hint hardcodeado | ✅ |
+| 7.5 | Mockups realistas con breadcrumbs, labels, campos con nombre real | ✅ |
+| 7.6 | Diseño checklist para steps sin URL (docs, preparación) | ✅ |
+| 7.7 | Enriquecimiento con datos de visual_guides (screen_hint, image_prompt) | ✅ |
+
+---
+
+## Fase 8 – Pipeline BDNS-First (v4.0.0)
+> **Estado:** 🔲 PENDIENTE
+> **Plan detallado:** `docs/13-plan-fases-v4.md` — FASES 2-3
+> **Análisis previo:** `docs/12-refactoring-pipeline-motor-busqueda-bdns-first.md`
+
+| # | Funcionalidad | Estado |
+|---|--------------|--------|
+| 8.1 | SectorNormalizador.java — mapeo sector → término BDNS | 🔲 |
+| 8.2 | FiltrosBdns record + BdnsFiltrosBuilder | 🔲 |
+| 8.3 | BdnsClientService.buscarPorFiltros() con fallback progresivo | 🔲 |
+| 8.4 | MotorMatchingService integrado con BDNS-First | 🔲 |
+| 8.5 | OpenAiMatchingService sin bloque keywords (~90 líneas eliminadas) | 🔲 |
+| 8.6 | Evento SSE `keywords` → `filtros` en stream.js | 🔲 |

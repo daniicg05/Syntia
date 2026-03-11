@@ -40,6 +40,13 @@ public class Recomendacion {
     @Column(columnDefinition = "TEXT")
     private String guia;
 
+    /**
+     * Guía enriquecida en formato JSON completo: workflows, guías visuales, documentos,
+     * requisitos universales LGS y disclaimer legal. Generada bajo demanda por OpenAiGuiaService.
+     */
+    @Column(name = "guia_enriquecida", columnDefinition = "TEXT")
+    private String guiaEnriquecida;
+
     /** true = generada por OpenAI, false = motor rule-based (fallback). */
     @Column(name = "usada_ia", nullable = false)
     @Builder.Default

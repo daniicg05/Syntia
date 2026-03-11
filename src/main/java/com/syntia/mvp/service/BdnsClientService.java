@@ -8,11 +8,19 @@ import org.springframework.web.client.RestClient;
 
 import javax.net.ssl.*;
 import java.net.HttpURLConnection;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.cert.X509Certificate;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Servicio de integración con la API pública de la BDNS
@@ -103,6 +111,97 @@ public class BdnsClientService {
         log.info("BDNS búsqueda '{}': totalElements={}", keywords, totalObj);
 
         return mapearRespuesta(respuesta);
+    }
+
+    /**
+     * Busca convocatorias filtrando por ámbito geográfico en la propia API BDNS.
+     * <p>
+     * Si {@code ccaa} es {@code null}, delega directamente a {@link #buscarPorTexto(String, int, int)}
+     * sin filtro adicional. Si se proporciona una CCAA reconocida, ejecuta DOS búsquedas en paralelo:
+     * <ul>
+     *   <li><b>Llamada A:</b> convocatorias estatales ({@code nivel1=ESTADO}, tamPag=10)</li>
+     *   <li><b>Llamada B:</b> convocatorias autonómicas de esa CCAA ({@code nivel1=AUTONOMICA}, {@code nivel2=ccaa}, tamPag=10)</li>
+     * </ul>
+     * Combina y deduplica ambas listas por {@code idBdns}.
+     *
+     * @param keyword palabra clave de búsqueda
+     * @param ccaa    nombre oficial de CCAA (ej: "Comunidad Valenciana") o null para búsqueda sin filtro
+     * @return lista combinada y deduplicada de ConvocatoriaDTO
+     * @see UbicacionNormalizador#normalizarACcaa(String)
+     */
+    // @inferido — nivel1/nivel2 son parámetros observados en el portal Angular de BDNS, no documentados oficialmente
+    public List<ConvocatoriaDTO> buscarPorTextoFiltrado(String keyword, String ccaa) {
+        if (ccaa == null) {
+            return buscarPorTexto(keyword, 0, 15);
+        }
+
+        log.info("BDNS búsqueda filtrada: keyword='{}' ccaa='{}'", keyword, ccaa);
+
+        List<ConvocatoriaDTO> combinadas = new CopyOnWriteArrayList<>();
+        String ccaaEncoded = URLEncoder.encode(ccaa, StandardCharsets.UTF_8);
+
+        @SuppressWarnings("resource")
+        ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            // Llamada A: convocatorias estatales (siempre relevantes independientemente de la CCAA)
+            CompletableFuture<Void> futuroEstatal = CompletableFuture.runAsync(() -> {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> respuesta = restClient.get()
+                            .uri(BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=0&tamPag=10" +
+                                 "&descripcion={desc}&descripcionTipoBusqueda=1&vigente=true" +
+                                 "&nivel1=ESTADO",
+                                 keyword)
+                            .retrieve()
+                            .body(Map.class);
+                    if (respuesta != null) {
+                        combinadas.addAll(mapearRespuesta(respuesta));
+                    }
+                    log.debug("BDNS filtrada ESTADO '{}': {} resultados", keyword, respuesta != null ? respuesta.get("totalElements") : 0);
+                } catch (Exception e) {
+                    log.warn("Error en búsqueda BDNS ESTADO keyword='{}': {}", keyword, e.getMessage());
+                }
+            }, executor);
+
+            // Llamada B: convocatorias autonómicas de la CCAA del usuario
+            CompletableFuture<Void> futuroAutonomica = CompletableFuture.runAsync(() -> {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> respuesta = restClient.get()
+                            .uri(BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=0&tamPag=10" +
+                                 "&descripcion={desc}&descripcionTipoBusqueda=1&vigente=true" +
+                                 "&nivel1=AUTONOMICA&nivel2=" + ccaaEncoded,
+                                 keyword)
+                            .retrieve()
+                            .body(Map.class);
+                    if (respuesta != null) {
+                        combinadas.addAll(mapearRespuesta(respuesta));
+                    }
+                    log.debug("BDNS filtrada AUTONOMICA '{}' ccaa='{}': {} resultados",
+                            keyword, ccaa, respuesta != null ? respuesta.get("totalElements") : 0);
+                } catch (Exception e) {
+                    log.warn("Error en búsqueda BDNS AUTONOMICA keyword='{}' ccaa='{}': {}", keyword, ccaa, e.getMessage());
+                }
+            }, executor);
+
+            CompletableFuture.allOf(futuroEstatal, futuroAutonomica).join();
+        } finally {
+            executor.shutdown();
+        }
+
+        // Deduplicar por idBdns
+        Set<String> idsBdnsVistos = new HashSet<>();
+        List<ConvocatoriaDTO> resultado = new ArrayList<>();
+        for (ConvocatoriaDTO dto : combinadas) {
+            if (dto.getIdBdns() != null && !dto.getIdBdns().isBlank()) {
+                if (idsBdnsVistos.contains(dto.getIdBdns())) continue;
+                idsBdnsVistos.add(dto.getIdBdns());
+            }
+            resultado.add(dto);
+        }
+
+        log.info("BDNS filtrada '{}' ccaa='{}': {} combinadas, {} tras dedup", keyword, ccaa, combinadas.size(), resultado.size());
+        return resultado;
     }
 
     // ── Detalle enriquecido de una convocatoria ──────────────────────────────

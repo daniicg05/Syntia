@@ -92,7 +92,7 @@ public class MotorMatchingService {
         log.info("Keywords generadas para proyecto {}: {}", proyecto.getId(), keywords);
 
         // 3. Buscar en API BDNS directamente con esas keywords (deduplicando por título)
-        Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords);
+        Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords, proyecto, perfil);
         log.info("Candidatas únicas obtenidas de BDNS: {}", candidatasUnicas.size());
 
         if (candidatasUnicas.isEmpty()) {
@@ -243,14 +243,31 @@ public class MotorMatchingService {
     /**
      * Busca en la API BDNS con cada keyword y devuelve un mapa título→DTO deduplicado.
      * Deduplicación doble: primero por idBdns (más fiable), luego por título como fallback.
+     * <p>
+     * v3.4.0+: Aplica pre-filtro geográfico PRE-búsqueda usando los parámetros nivel1/nivel2
+     * de la API BDNS cuando la ubicación del usuario se puede normalizar a una CCAA reconocida.
+     * Esto reduce las candidatas irrelevantes ANTES de que lleguen al motor IA.
+     *
+     * @param keywords  lista de keywords generadas por OpenAI o fallback
+     * @param proyecto  proyecto del usuario (para obtener ubicación)
+     * @param perfil    perfil de la entidad (fallback de ubicación, puede ser null)
+     * @return mapa título→DTO deduplicado con convocatorias vigentes
      */
-    private Map<String, ConvocatoriaDTO> buscarEnBdns(List<String> keywords) {
+    private Map<String, ConvocatoriaDTO> buscarEnBdns(List<String> keywords, Proyecto proyecto, Perfil perfil) {
+        // v3.4.0: Normalizar ubicación UNA sola vez antes del bucle de keywords
+        String ubicacionRaw = (proyecto.getUbicacion() != null && !proyecto.getUbicacion().isBlank())
+                ? proyecto.getUbicacion()
+                : (perfil != null ? perfil.getUbicacion() : null);
+        String ccaaNormalizada = UbicacionNormalizador.normalizarACcaa(ubicacionRaw);
+        log.debug("Pre-filtro BDNS activo — CCAA normalizada: {}",
+                ccaaNormalizada != null ? ccaaNormalizada : "ninguna (búsqueda nacional)");
+
         Map<String, ConvocatoriaDTO> resultado = new LinkedHashMap<>();
         java.util.Set<String> idsBdnsVistos = new java.util.HashSet<>();
         LocalDate hoy = LocalDate.now();
         for (String kw : keywords) {
             try {
-                List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTexto(kw, 0, RESULTADOS_POR_KEYWORD);
+                List<ConvocatoriaDTO> encontradas = bdnsClientService.buscarPorTextoFiltrado(kw, ccaaNormalizada);
                 for (ConvocatoriaDTO dto : encontradas) {
                     if (dto.getTitulo() == null) continue;
                     // Deduplicar por idBdns primero (más fiable que título)
@@ -385,7 +402,7 @@ public class MotorMatchingService {
 
             // 4. Buscar en BDNS
             enviarEvento(emitter, "estado", "🌐 Buscando convocatorias en la BDNS...");
-            Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords);
+            Map<String, ConvocatoriaDTO> candidatasUnicas = buscarEnBdns(keywords, proyecto, perfil);
             log.info("SSE: Candidatas únicas obtenidas de BDNS: {}", candidatasUnicas.size());
             enviarEvento(emitter, "busqueda",
                     Map.of("candidatas", candidatasUnicas.size()));

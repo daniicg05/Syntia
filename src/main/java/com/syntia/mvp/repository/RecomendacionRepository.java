@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repositorio JPA para la entidad Recomendacion.
@@ -73,5 +74,28 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
     @Query("SELECT DISTINCT c.sector FROM Recomendacion r JOIN r.convocatoria c " +
            "WHERE r.proyecto.id = :proyectoId AND c.sector IS NOT NULL ORDER BY c.sector")
     List<String> findSectoresDistintosByProyectoId(@Param("proyectoId") Long proyectoId);
+
+    /**
+     * Obtiene una recomendación por ID verificando que pertenece al proyecto indicado.
+     * Usa JOIN FETCH para cargar la convocatoria (evita LazyInitializationException).
+     */
+    @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria WHERE r.id = :id AND r.proyecto.id = :proyectoId")
+    Optional<Recomendacion> findByIdAndProyectoId(@Param("id") Long id, @Param("proyectoId") Long proyectoId);
+
+    /**
+     * Actualiza el campo guiaEnriquecida de una recomendación existente.
+     * Usado para persistir la guía JSON generada bajo demanda por OpenAiGuiaService.
+     */
+    @Modifying
+    @Query("UPDATE Recomendacion r SET r.guiaEnriquecida = :guiaJson WHERE r.id = :id")
+    void actualizarGuiaEnriquecida(@Param("id") Long id, @Param("guiaJson") String guiaJson);
+
+    /**
+     * Invalida todas las guías enriquecidas cacheadas.
+     * Usado al actualizar el formato/prompt de generación de guías para forzar regeneración.
+     */
+    @Modifying
+    @Query("UPDATE Recomendacion r SET r.guiaEnriquecida = null WHERE r.guiaEnriquecida IS NOT NULL")
+    int invalidarTodasLasGuiasEnriquecidas();
 }
 

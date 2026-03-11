@@ -8,6 +8,38 @@ Formato de cada entrada:
 
 ---
 
+## [3.5.0] – 2026-03-11
+
+### Galería Visual Interactiva — Mockups Realistas de Portales Gubernamentales
+
+#### Archivos modificados
+- `recomendaciones.html` — **Reescritura completa de la galería visual (FASE 1 del plan v4.0.0):**
+  1. **`window.PORTALES_GOB`**: mapa global unificado (eliminado duplicado `PORTALES_LB`). Contiene 15 portales: AEAT, TGSS, Cl@ve, FNMT, AutoFirma, REG, BDNS, PAG + 6 sedes autonómicas (Andalucía, Valencia, Cataluña, Galicia, País Vasco, Madrid).
+  2. **`detectarPortalGob(url)`**: función global de detección con matcher inteligente — cualquier hostname `.gob.es`/`sede.*.es` no mapeado genera un portal institucional genérico con nombre inferido del dominio.
+  3. **Mockups realistas**: cada tarjeta simula la interfaz real del portal con header institucional (colores oficiales), barra de navegación con items reales (item activo detectado por `user_action`), breadcrumb, campos de formulario con labels reales (`NIF/CIF`, `Tipo de certificado`...), y botón CTA con indicador pulsante 👆.
+  4. **Prioridad `user_action` de IA**: el hint del mockup y del lightbox usa `step.user_action` de la IA (dinámico por convocatoria), con fallback a `portal.cta` (estático).
+  5. **Diseño checklist para pasos sin URL**: pasos de preparación/documentación muestran lista de documentos necesarios con checks ✓ en vez de mockup de portal.
+  6. **Enriquecimiento con `visual_guides`**: si la IA genera `screen_hint` o `image_prompt`, se usan como URL fallback y hint fallback respectivamente.
+  7. **Lightbox ampliado**: usa `window.PORTALES_GOB` compartido (cero duplicación), mockup grande con breadcrumb, campos con labels, y `user_action` como hint dinámico.
+
+- `OpenAiGuiaService.java` — `PROMPT_VERSION` incrementado a 4 para invalidar guías cacheadas. Prompt mejorado (FASE 3): `user_action` ahora requiere instrucciones precisas de navegación ("Pulsa X → Selecciona Y"); `official_link` marcado como OBLIGATORIO en todos los pasos.
+
+#### Nuevos archivos creados
+- `docs/13-plan-fases-v4.md` — Plan de implementación v4.0.0 con 4 fases: galería visual (completada), BDNS-First infraestructura, integración en motor, documentación.
+
+#### Documentación actualizada
+- `docs/07-fases-implementacion.md` — Añadidas Fase 7 (Galería Visual, ✅) y Fase 8 (BDNS-First, 🔲). Backlog actualizado: B.1 marcada como obsoleta.
+- `docs/09-auditoria-guia-subvenciones.md` — Marcado como ARCHIVADO (hallazgos resueltos en v3.4.0+).
+- `docs/12-refactoring-pipeline-motor-busqueda-bdns-first.md` — Estado actualizado: "Implementación planificada en 13-plan-fases-v4.md".
+
+#### Entorno de compilación verificado
+- **Compilación Maven:** `BUILD SUCCESS`, exit code `0`
+- **Tests:** 1 passed, 0 failures, 0 errors
+
+**Autor(es):** Diego
+
+---
+
 ## [3.4.0] – 2026-03-10
 
 ### Informe Técnico BDNS + Paralelismo de Detalles + Deduplicación por idBdns

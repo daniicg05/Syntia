@@ -185,6 +185,259 @@
         /* ── Scrollbar para stepper en móvil ── */
         .stepper-flow::-webkit-scrollbar { height: 4px; }
         .stepper-flow::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 2px; }
+
+        /* ── Portal card (representación fiel del portal oficial) ── */
+        .portal-card {
+            border: 3px solid #198754;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+        .portal-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(25,135,84,0.2);
+        }
+        .portal-card-syntia-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #198754;
+            color: #fff;
+            font-size: 0.55rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            z-index: 3;
+        }
+        .portal-card-bar {
+            background: linear-gradient(180deg, #f0f0f0, #e0e0e0);
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border-bottom: 1px solid #ccc;
+        }
+        .portal-card-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .portal-card-dot.r { background: #ff5f57; }
+        .portal-card-dot.y { background: #ffbd2e; }
+        .portal-card-dot.g { background: #28c840; }
+        .portal-card-url {
+            flex: 1;
+            background: #fff;
+            border-radius: 3px;
+            padding: 2px 8px;
+            font-size: 0.58rem;
+            color: #0d6efd;
+            margin-left: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: monospace;
+        }
+        .portal-card-header {
+            padding: 10px 12px 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .portal-card-header img {
+            width: 28px; height: 28px;
+            object-fit: contain;
+        }
+        .portal-card-header-text {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.2;
+        }
+        .portal-card-header-sub {
+            font-size: 0.55rem;
+            color: #888;
+        }
+        .portal-card-preview {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        /* Mockup de interfaz de portal */
+        .mock-screen { width:100%; height:100%; display:flex; flex-direction:column; font-family: -apple-system, 'Segoe UI', sans-serif; }
+        .mock-header { padding:5px 10px; color:#fff; font-size:0.52rem; font-weight:700; display:flex; align-items:center; gap:5px; white-space:nowrap; overflow:hidden; min-height:22px; }
+        .mock-header span { opacity:0.9; }
+        .mock-nav { display:flex; gap:0; background:#f5f5f5; border-bottom:1px solid #ddd; flex-shrink:0; }
+        .mock-nav-item { padding:3px 7px; font-size:0.44rem; color:#555; border-right:1px solid #eee; white-space:nowrap; cursor:default; }
+        .mock-nav-item.active { background:#fff; color:#000; font-weight:700; border-bottom:2px solid currentColor; }
+        .mock-breadcrumb { font-size:0.38rem; color:#888; padding:3px 8px; background:#fafafa; border-bottom:1px solid #f0f0f0; }
+        .mock-breadcrumb b { color:#333; }
+        .mock-body { flex:1; padding:8px; display:flex; flex-direction:column; gap:4px; background:#fff; position:relative; overflow:hidden; }
+        .mock-body-row { display:flex; align-items:center; gap:4px; width:100%; }
+        .mock-label { font-size:0.38rem; color:#555; font-weight:600; min-width:30%; text-align:right; padding-right:4px; }
+        .mock-input { flex:1; height:12px; background:#f8f8f8; border:1px solid #ddd; border-radius:2px; }
+        .mock-btn { padding:4px 14px; border-radius:4px; color:#fff; font-size:0.52rem; font-weight:700; border:none; position:relative; cursor:default; box-shadow:0 1px 4px rgba(0,0,0,0.18); letter-spacing:0.2px; }
+        .mock-btn-outline { padding:3px 10px; border-radius:3px; background:transparent; font-size:0.48rem; font-weight:600; cursor:default; }
+        .mock-field { width:80%; height:12px; background:#f0f0f0; border:1px solid #ddd; border-radius:2px; }
+        .mock-sidebar { display:flex; flex-direction:column; gap:2px; position:absolute; right:6px; top:4px; }
+        .mock-sidebar-item { font-size:0.36rem; color:#0d6efd; text-decoration:underline; cursor:default; }
+        /* Diseño alternativo para pasos sin portal (preparación, documentación) */
+        .mock-checklist { width:100%; height:100%; display:flex; flex-direction:column; padding:10px; gap:3px; background:linear-gradient(135deg,#f8fffe,#f0f7ff); }
+        .mock-checklist-title { font-size:0.55rem; font-weight:700; color:#333; margin-bottom:2px; display:flex; align-items:center; gap:4px; }
+        .mock-checklist-item { font-size:0.42rem; color:#444; display:flex; align-items:center; gap:4px; padding:2px 0; }
+        .mock-check { width:10px; height:10px; border:1.5px solid #198754; border-radius:2px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.35rem; }
+        .mock-check.done { background:#198754; color:#fff; }
+        /* Indicador pulsante de "haz clic aquí" */
+        .click-pulse {
+            position: absolute;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: rgba(220,53,69,0.25);
+            border: 2px solid #dc3545;
+            animation: pulseClick 1.5s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .click-pulse::after {
+            content: '👆';
+            position: absolute;
+            top: -16px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+        }
+        @keyframes pulseClick {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+        }
+        .mock-hint {
+            position: absolute;
+            bottom: 4px; left: 4px; right: 4px;
+            background: rgba(220,53,69,0.92);
+            color: #fff;
+            font-size: 0.48rem;
+            font-weight: 600;
+            padding: 3px 6px;
+            border-radius: 3px;
+            text-align: center;
+            z-index: 4;
+        }
+        .portal-card-preview iframe {
+            width: 200%;
+            height: 280%;
+            transform: scale(0.5);
+            transform-origin: top left;
+            border: none;
+            pointer-events: none;
+        }
+        .portal-card-preview-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .portal-card-preview-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+        }
+        .portal-card-footer {
+            padding: 6px 10px;
+            background: #f0fdf4;
+            border-top: 2px solid #198754;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .portal-card-footer .step-num {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #198754;
+        }
+        .portal-card-footer .step-action {
+            font-size: 0.6rem;
+            color: #0d6efd;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* ── Lightbox CSS puro ── */
+        .vg-lightbox-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        .vg-lightbox-overlay.active {
+            display: flex;
+        }
+        .vg-lightbox-content {
+            background: #fff;
+            border-radius: 12px;
+            max-width: 640px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: lbFadeIn 0.3s ease;
+        }
+        @keyframes lbFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .vg-lightbox-close {
+            position: absolute;
+            top: 10px; right: 14px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #666;
+            cursor: pointer;
+            z-index: 1;
+            line-height: 1;
+        }
+        .vg-lightbox-close:hover { color: #000; }
+        .vg-lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            border: none;
+            font-size: 1.5rem;
+            padding: 0.5rem 0.8rem;
+            cursor: pointer;
+            border-radius: 50%;
+            line-height: 1;
+        }
+        .vg-lightbox-nav:hover { background: rgba(0,0,0,0.6); }
+        .vg-lightbox-nav.prev { left: -60px; }
+        .vg-lightbox-nav.next { right: -60px; }
+        @media (max-width: 768px) {
+            .vg-lightbox-nav.prev { left: 4px; }
+            .vg-lightbox-nav.next { right: 4px; }
+        }
+        .vg-lightbox-counter {
+            text-align: center;
+            padding: 8px;
+            font-size: 0.75rem;
+            color: #999;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -372,10 +625,18 @@
                             </div>
                         </div>
                         <div class="mt-3 d-flex flex-wrap gap-2">
-                            <!-- Botón guía: siempre visible -->
+                            <!-- Botón guía básica (8 pasos) -->
                             <button type="button" class="btn btn-success btn-sm"
                                     th:onclick="|abrirGuia('modalGuia${rec.id}')|">
                                 📋 Ver guía de solicitud
+                            </button>
+
+                            <!-- Botón guía enriquecida (galería visual interactiva) -->
+                            <button type="button" class="btn btn-outline-success btn-sm"
+                                    th:data-proyecto-id="${proyecto.id}"
+                                    th:data-rec-id="${rec.id}"
+                                    onclick="solicitarGuiaEnriquecida(this)">
+                                🗺️ Guía visual completa
                             </button>
 
                             <!-- Enlace convocatoria oficial -->
@@ -515,6 +776,114 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/javascript/recomendaciones-stream.js}"></script>
 <script>
+// ── Mapa GLOBAL de portales gubernamentales (compartido galería + lightbox) ──
+window.PORTALES_GOB = {
+    // Portales centrales
+    'sede.agenciatributaria.gob.es': {
+        name: 'Agencia Tributaria', short: 'AEAT', color: '#004A8F', icon: '🏛️',
+        headerBg: '#004A8F', headerText: 'Sede Electrónica — Agencia Tributaria',
+        nav: ['Inicio', 'Procedimientos', 'Certificados', 'Mis expedientes'],
+        cta: 'Obtener certificado', ctaIcon: '📄',
+        breadcrumb: 'Inicio > Certificados > Estar al corriente',
+        fields: ['NIF/CIF del solicitante', 'Tipo de certificado']
+    },
+    'sede.seg-social.gob.es': {
+        name: 'Seguridad Social', short: 'TGSS', color: '#C50000', icon: '🛡️',
+        headerBg: '#8B0000', headerText: 'Sede Electrónica — Seguridad Social',
+        nav: ['Ciudadanos', 'Empresas', 'Certificados', 'Informes'],
+        cta: 'Informe de cotización', ctaIcon: '🛡️',
+        breadcrumb: 'Inicio > Certificados > Vida laboral',
+        fields: ['Nº Seguridad Social', 'Tipo de informe']
+    },
+    'clave.gob.es': {
+        name: 'Cl@ve — Identidad electrónica', short: 'Cl@ve', color: '#00539B', icon: '🔑',
+        headerBg: '#003D73', headerText: 'Cl@ve — Sistema de identidad electrónica',
+        nav: ['Registro', 'Cl@ve PIN', 'Cl@ve Permanente', 'Ayuda'],
+        cta: 'Registrarse', ctaIcon: '🔑',
+        breadcrumb: 'Inicio > Registro > Tipo de registro',
+        fields: ['DNI/NIE', 'Fecha de validez']
+    },
+    'sede.fnmt.gob.es': {
+        name: 'FNMT — Certificado digital', short: 'FNMT', color: '#1B5E20', icon: '📜',
+        headerBg: '#1B5E20', headerText: 'FNMT — Certificado de Persona Física',
+        nav: ['Solicitar', 'Renovar', 'Revocar', 'Descargar'],
+        cta: 'Solicitar certificado', ctaIcon: '📜',
+        breadcrumb: 'Certificados > Persona Física > Solicitar',
+        fields: ['NIF del titular', 'Correo electrónico']
+    },
+    'www.sede.fnmt.gob.es': {
+        name: 'FNMT — Certificado digital', short: 'FNMT', color: '#1B5E20', icon: '📜',
+        headerBg: '#1B5E20', headerText: 'FNMT — Certificado de Persona Física',
+        nav: ['Solicitar', 'Renovar', 'Revocar', 'Descargar'],
+        cta: 'Solicitar certificado', ctaIcon: '📜',
+        breadcrumb: 'Certificados > Persona Física > Solicitar',
+        fields: ['NIF del titular', 'Correo electrónico']
+    },
+    'firmaelectronica.gob.es': {
+        name: 'AutoFirma', short: 'AutoFirma', color: '#2E7D32', icon: '✍️',
+        headerBg: '#2E7D32', headerText: 'AutoFirma — Firma electrónica',
+        nav: ['Descargar', 'Requisitos', 'Manuales', 'Soporte'],
+        cta: 'Descargar AutoFirma', ctaIcon: '⬇️',
+        breadcrumb: 'Inicio > Descargas > Sistema operativo',
+        fields: []
+    },
+    'rec.redsara.es': {
+        name: 'Registro Electrónico', short: 'REG', color: '#5C6BC0', icon: '📋',
+        headerBg: '#3949AB', headerText: 'Registro Electrónico — Administración General',
+        nav: ['Nuevo registro', 'Consultar', 'Mis registros', 'Ayuda'],
+        cta: 'Nuevo registro', ctaIcon: '📤',
+        breadcrumb: 'Registro > Nuevo > Seleccionar organismo',
+        fields: ['Organismo destino', 'Asunto', 'Adjuntar documentación']
+    },
+    'www.infosubvenciones.es': {
+        name: 'Portal BDNS', short: 'BDNS', color: '#00695C', icon: '💰',
+        headerBg: '#00695C', headerText: 'BDNS — Base de Datos Nacional de Subvenciones',
+        nav: ['Buscar', 'Convocatorias', 'Concesiones', 'Estadísticas'],
+        cta: 'Ver convocatoria', ctaIcon: '🔎',
+        breadcrumb: 'Convocatorias > Búsqueda > Ficha detalle',
+        fields: ['Texto libre', 'Órgano convocante']
+    },
+    'sede.administracion.gob.es': {
+        name: 'Punto de Acceso General', short: 'PAG', color: '#1A237E', icon: '🏛️',
+        headerBg: '#1A237E', headerText: 'Punto de Acceso General — Administración',
+        nav: ['Trámites', 'Sedes electrónicas', 'Registros', 'Ayuda'],
+        cta: 'Buscar trámite', ctaIcon: '🔎',
+        breadcrumb: 'Inicio > Trámites > Buscar por organismo',
+        fields: ['Organismo', 'Tipo de trámite']
+    },
+    // Sedes autonómicas
+    'sede.juntadeandalucia.es': { name: 'Junta de Andalucía', short: 'J.Andalucía', color: '#006633', icon: '🏛️', headerBg: '#006633', headerText: 'Sede Electrónica — Junta de Andalucía', nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Subvenciones', fields: ['NIF solicitante', 'Código trámite'] },
+    'sede.gva.es': { name: 'Generalitat Valenciana', short: 'GVA', color: '#C8102E', icon: '🏛️', headerBg: '#C8102E', headerText: 'Sede Electrónica — Generalitat Valenciana', nav: ['Trámites', 'Servicios', 'Cita previa', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Solicitud', fields: ['NIF/NIE', 'Procedimiento'] },
+    'web.gencat.cat': { name: 'Generalitat de Catalunya', short: 'Gencat', color: '#9B1D20', icon: '🏛️', headerBg: '#9B1D20', headerText: 'Tràmits — Generalitat de Catalunya', nav: ['Tràmits', 'Subvencions', 'Consultes', 'Ajuda'], cta: 'Iniciar tràmit', ctaIcon: '📋', breadcrumb: 'Inici > Tràmits > Sol·licitud', fields: ['NIF sol·licitant', 'Codi tràmit'] },
+    'sede.xunta.gal': { name: 'Xunta de Galicia', short: 'Xunta', color: '#003DA5', icon: '🏛️', headerBg: '#003DA5', headerText: 'Sede Electrónica — Xunta de Galicia', nav: ['Procedementos', 'Servizos', 'Consultas', 'Axuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Procedementos > Subvenciones', fields: ['NIF solicitante', 'Código procedemento'] },
+    'sede.euskadi.eus': { name: 'Gobierno Vasco', short: 'G.Vasco', color: '#CC0000', icon: '🏛️', headerBg: '#CC0000', headerText: 'Sede Electrónica — Gobierno Vasco', nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Subvenciones', fields: ['NIF/CIF', 'Línea de ayuda'] },
+    'sede.comunidad.madrid': { name: 'Comunidad de Madrid', short: 'C.Madrid', color: '#C4122F', icon: '🏛️', headerBg: '#C4122F', headerText: 'Sede Electrónica — Comunidad de Madrid', nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Subvenciones', fields: ['NIF solicitante', 'Código expediente'] }
+};
+
+/** Detecta portal conocido o genera uno genérico por patrón de hostname */
+window.detectarPortalGob = function(url) {
+    if (!url) return null;
+    try {
+        var hostname = new URL(url).hostname;
+        var p = window.PORTALES_GOB[hostname] || window.PORTALES_GOB[hostname.replace('www.', '')];
+        if (p) return p;
+        // Match parcial: cualquier sede gubernamental no mapeada
+        if (hostname.match(/sede\..+\.gob\.es/) || hostname.match(/sede\..+\.es/) || hostname.match(/\.gob\.es/)) {
+            var parts = hostname.replace('sede.', '').replace('www.', '').replace('.gob.es', '').replace('.es', '');
+            var orgName = parts.charAt(0).toUpperCase() + parts.slice(1).replace(/\./g, ' ');
+            return {
+                name: 'Sede — ' + orgName, short: orgName.substring(0, 12), color: '#37474F', icon: '🏛️',
+                headerBg: '#37474F', headerText: 'Sede Electrónica — ' + orgName,
+                nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'],
+                cta: 'Iniciar trámite', ctaIcon: '📋',
+                breadcrumb: 'Inicio > Trámites > Solicitud',
+                fields: ['NIF/CIF', 'Código trámite']
+            };
+        }
+        return null;
+    } catch(e) { return null; }
+};
+
 /* Mapeo de pasos para la guía visual */
 var GUIA_PASOS_META = [
     { icon: '📄', label: 'Requisitos legales',        color: '#dc3545' },
@@ -527,11 +896,587 @@ var GUIA_PASOS_META = [
     { icon: '⚠️', label: 'Advertencias críticas',    color: '#ffc107' }
 ];
 
+/* Iconos para fases del workflow enriquecido */
+var WORKFLOW_PHASE_ICONS = {
+    preparation: '📋', application: '💻', submission: '📤', tracking: '🔍'
+};
+var WORKFLOW_PHASE_COLORS = {
+    preparation: '#dc3545', application: '#0d6efd', submission: '#198754', tracking: '#6f42c1'
+};
+
 function abrirGuia(modalId) {
     var el = document.getElementById(modalId);
     if (!el) { console.error('Modal no encontrado:', modalId); return; }
     var modal = new bootstrap.Modal(el);
     modal.show();
+}
+
+/**
+ * Solicita la guía enriquecida al servidor (genera bajo demanda si no existe).
+ * Muestra un modal de galería visual interactiva con workflows, documentos y requisitos.
+ */
+function solicitarGuiaEnriquecida(btn) {
+    var proyectoId = btn.getAttribute('data-proyecto-id');
+    var recId = btn.getAttribute('data-rec-id');
+    if (!proyectoId || !recId) return;
+
+    // Deshabilitar botón y mostrar spinner
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+
+    fetch('/usuario/proyectos/' + proyectoId + '/recomendaciones/' + recId + '/guia-enriquecida')
+        .then(function(resp) {
+            if (!resp.ok) throw new Error('Error ' + resp.status);
+            return resp.json();
+        })
+        .then(function(guia) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            mostrarGuiaEnriquecida(guia);
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert('No se pudo generar la guía enriquecida: ' + err.message);
+        });
+}
+
+/**
+ * Muestra la guía enriquecida en un modal de galería visual interactiva.
+ */
+function mostrarGuiaEnriquecida(guia) {
+    var prev = document.getElementById('modalGuiaEnriquecida');
+    if (prev) prev.remove();
+
+    var html = '';
+
+    // ── Resumen de la convocatoria ──
+    if (guia.grant_summary) {
+        var gs = guia.grant_summary;
+        html += '<div class="card border-0 shadow-sm mb-4">';
+        html += '<div class="card-header bg-primary text-white"><h6 class="mb-0">📌 Resumen de la convocatoria</h6></div>';
+        html += '<div class="card-body">';
+        if (gs.title) html += '<h6 class="fw-bold">' + esc(gs.title) + '</h6>';
+        if (gs.organism) html += '<p class="mb-1"><strong>Organismo:</strong> ' + esc(gs.organism) + '</p>';
+        if (gs.objective) html += '<p class="mb-1"><strong>Objetivo:</strong> ' + esc(gs.objective) + '</p>';
+        if (gs.who_can_apply) html += '<p class="mb-1"><strong>¿Quién puede solicitar?</strong> ' + esc(gs.who_can_apply) + '</p>';
+        if (gs.deadline) html += '<p class="mb-1"><strong>Plazo:</strong> <span class="badge bg-danger">' + esc(gs.deadline) + '</span></p>';
+        if (gs.legal_basis) html += '<p class="mb-1"><strong>Bases reguladoras:</strong> ' + esc(gs.legal_basis) + '</p>';
+        if (gs.official_link) html += '<a href="' + esc(gs.official_link) + '" target="_blank" class="btn btn-outline-primary btn-sm mt-2">Sede electrónica ↗</a>';
+        html += '</div></div>';
+    }
+
+    // ── Métodos de solicitud ──
+    if (guia.application_methods && guia.application_methods.length > 0) {
+        html += '<div class="card border-0 shadow-sm mb-4">';
+        html += '<div class="card-header bg-info text-white"><h6 class="mb-0">🔗 Métodos de solicitud</h6></div>';
+        html += '<div class="card-body"><div class="row g-2">';
+        guia.application_methods.forEach(function(m) {
+            var icon = m.method === 'online' ? '💻' : (m.method === 'presencial' ? '🏢' : '👤');
+            html += '<div class="col-md-4"><div class="border rounded p-3 text-center h-100">';
+            html += '<div class="fs-2 mb-1">' + icon + '</div>';
+            html += '<div class="fw-bold text-capitalize">' + esc(m.method) + '</div>';
+            html += '<div class="small text-muted">' + esc(m.description || '') + '</div>';
+            if (m.official_portal) html += '<a href="' + esc(m.official_portal) + '" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Acceder ↗</a>';
+            html += '</div></div>';
+        });
+        html += '</div></div></div>';
+    }
+
+    // ── Requisitos universales LGS art. 13 ──
+    if (guia.universal_requirements_lgs_art13 && guia.universal_requirements_lgs_art13.length > 0) {
+        html += '<div class="card border-0 shadow-sm mb-4 border-start border-3 border-danger">';
+        html += '<div class="card-header bg-light"><h6 class="mb-0 text-danger">⚖️ Requisitos universales (LGS art. 13)</h6></div>';
+        html += '<div class="card-body"><ul class="mb-0">';
+        guia.universal_requirements_lgs_art13.forEach(function(r) {
+            html += '<li class="mb-1">' + esc(r) + '</li>';
+        });
+        html += '</ul></div></div>';
+    }
+
+    // ── Documentos requeridos ──
+    if (guia.required_documents && guia.required_documents.length > 0) {
+        html += '<div class="card border-0 shadow-sm mb-4 border-start border-3 border-warning">';
+        html += '<div class="card-header bg-light"><h6 class="mb-0 text-warning">📎 Documentación requerida</h6></div>';
+        html += '<div class="card-body"><div class="row g-2">';
+        guia.required_documents.forEach(function(doc, i) {
+            html += '<div class="col-md-6"><div class="d-flex align-items-start gap-2">';
+            html += '<span class="badge bg-warning text-dark mt-1">' + (i+1) + '</span>';
+            html += '<span class="small">' + esc(doc) + '</span>';
+            html += '</div></div>';
+        });
+        html += '</div></div></div>';
+    }
+
+    // ── Workflows ──
+    if (guia.workflows && guia.workflows.length > 0) {
+        html += '<h6 class="fw-bold mt-4 mb-3">🗺️ Flujos de solicitud paso a paso</h6>';
+
+        // Tabs para métodos
+        var tabId = 'guiaEnriquecidaTabs';
+        html += '<ul class="nav nav-tabs mb-3" id="' + tabId + '" role="tablist">';
+        guia.workflows.forEach(function(wf, wi) {
+            var active = wi === 0 ? ' active' : '';
+            var icon = wf.method === 'online' ? '💻' : (wf.method === 'presencial' ? '🏢' : '👤');
+            html += '<li class="nav-item" role="presentation">';
+            html += '<button class="nav-link' + active + '" id="wf-tab-' + wi + '" data-bs-toggle="tab" data-bs-target="#wf-pane-' + wi + '" type="button" role="tab">';
+            html += icon + ' ' + esc(wf.method);
+            html += '</button></li>';
+        });
+        html += '</ul>';
+
+        html += '<div class="tab-content">';
+        guia.workflows.forEach(function(wf, wi) {
+            var active = wi === 0 ? ' show active' : '';
+            html += '<div class="tab-pane fade' + active + '" id="wf-pane-' + wi + '" role="tabpanel">';
+
+            if (wf.steps && wf.steps.length > 0) {
+                // Stepper horizontal
+                html += '<div class="stepper-flow mb-3" role="list">';
+                wf.steps.forEach(function(step, si) {
+                    var phaseIcon = WORKFLOW_PHASE_ICONS[step.phase] || '📌';
+                    var cls = si === 0 ? 'active' : '';
+                    html += '<div class="stepper-step ' + cls + '">';
+                    html += '<div class="stepper-icon">' + phaseIcon + '</div>';
+                    html += '<div class="stepper-label">' + esc(step.title || 'Paso ' + step.step) + '</div>';
+                    html += '</div>';
+                    if (si < wf.steps.length - 1) {
+                        html += '<div class="stepper-connector ' + (si === 0 ? 'active' : '') + '"></div>';
+                    }
+                });
+                html += '</div>';
+
+                // Timeline vertical detallado
+                html += '<div class="guia-timeline">';
+                wf.steps.forEach(function(step, si) {
+                    var phaseColor = WORKFLOW_PHASE_COLORS[step.phase] || '#6c757d';
+                    html += '<div class="guia-paso" data-step="' + (si+1) + '" style="animation-delay:' + (si*0.05) + 's">';
+                    html += '<div class="guia-paso-icon" style="border-color:' + phaseColor + '">' + (WORKFLOW_PHASE_ICONS[step.phase] || '📌') + '</div>';
+                    html += '<div class="guia-paso-content" style="border-left-color:' + phaseColor + '">';
+                    html += '<div class="guia-paso-label" style="color:' + phaseColor + '">Paso ' + step.step + ' — ' + esc(step.title || '') + '</div>';
+                    html += '<div class="guia-paso-text">' + esc(step.description || '') + '</div>';
+                    if (step.user_action) html += '<div class="small mt-1"><strong>🧑 Acción:</strong> ' + esc(step.user_action) + '</div>';
+                    if (step.portal_action) html += '<div class="small"><strong>🖥️ Portal:</strong> ' + esc(step.portal_action) + '</div>';
+                    if (step.required_documents && step.required_documents.length > 0) {
+                        html += '<div class="small mt-1"><strong>📄 Docs:</strong> ' + step.required_documents.map(esc).join(', ') + '</div>';
+                    }
+                    if (step.estimated_time_minutes > 0) {
+                        html += '<div class="small text-muted mt-1">⏱️ ~' + step.estimated_time_minutes + ' min</div>';
+                    }
+                    if (step.official_link) {
+                        html += '<a href="' + esc(step.official_link) + '" target="_blank" class="btn btn-outline-primary btn-sm mt-2">Acceder ↗</a>';
+                    }
+                    html += '</div></div>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // ── Galería visual de portales (generada desde el workflow real) ──
+    var wfPrincipal = (guia.workflows && guia.workflows.length > 0) ? guia.workflows[0] : null;
+    // Enriquecer con visual_guides si existen (screen_hint + image_prompt)
+    var vgSteps = (guia.visual_guides && guia.visual_guides.length > 0 && guia.visual_guides[0].steps) ? guia.visual_guides[0].steps : [];
+
+    if (wfPrincipal && wfPrincipal.steps && wfPrincipal.steps.length > 0) {
+        var phaseEmoji = { preparation: '📋', application: '💻', submission: '📤', tracking: '🔍' };
+        var phaseColors = { preparation: '#dc3545', application: '#0d6efd', submission: '#198754', tracking: '#6f42c1' };
+        var phaseNames = { preparation: 'Preparación', application: 'Solicitud', submission: 'Envío', tracking: 'Seguimiento' };
+
+        html += '<h6 class="fw-bold mt-4 mb-3">🖼️ Recorrido visual paso a paso</h6>';
+        html += '<p class="small text-muted mb-3">Cada tarjeta simula la pantalla real que verás. El indicador <span style="color:#dc3545;font-weight:700;">👆</span> marca dónde hacer clic.</p>';
+
+        window._wfSteps = wfPrincipal.steps;
+        window._vgSteps = vgSteps;
+
+        var methodIcon = wfPrincipal.method === 'online' ? '💻' : (wfPrincipal.method === 'presencial' ? '🏢' : '👤');
+        html += '<div class="mb-3"><span class="badge bg-secondary mb-2">' + methodIcon + ' Tramitación ' + esc(wfPrincipal.method || 'online') + '</span>';
+        html += '<div class="row g-3">';
+
+        wfPrincipal.steps.forEach(function(step, si) {
+            var pColor = phaseColors[step.phase] || '#6c757d';
+            var pEmoji = phaseEmoji[step.phase] || '📌';
+            var pName = phaseNames[step.phase] || step.phase || '';
+            var realUrl = step.official_link || '';
+            // Enriquecer con visual_guides si el step coincide
+            var vg = vgSteps[si] || {};
+            if (!realUrl && vg.screen_hint && vg.screen_hint.startsWith('http')) realUrl = vg.screen_hint;
+            if (!realUrl && vg.official_link) realUrl = vg.official_link;
+            var portal = window.detectarPortalGob(realUrl);
+            var portalColor = portal ? portal.color : pColor;
+            var portalName = portal ? portal.name : (step.title || 'Portal oficial');
+            var portalShort = portal ? portal.short : '';
+            var portalIcon = portal ? portal.icon : pEmoji;
+            var displayUrl = '';
+            try { displayUrl = new URL(realUrl).hostname + new URL(realUrl).pathname; } catch(e) {}
+            // Hint: priorizar user_action de la IA, fallback a portal genérico
+            var hintText = step.user_action || (vg.image_prompt) || '';
+
+            html += '<div class="col-md-6 col-lg-4">';
+            html += '<div class="portal-card" style="border-color:' + portalColor + ';cursor:pointer;" onclick="abrirLightboxWF(' + si + ')">';
+            html += '<span class="portal-card-syntia-badge">SYNTIA · Paso ' + step.step + '</span>';
+            // Barra navegador
+            html += '<div class="portal-card-bar">';
+            html += '<span class="portal-card-dot r"></span><span class="portal-card-dot y"></span><span class="portal-card-dot g"></span>';
+            if (displayUrl) {
+                html += '<div class="portal-card-url">🔒 ' + esc(displayUrl) + '</div>';
+            } else {
+                html += '<div class="portal-card-url" style="color:#999;">📌 ' + esc(step.title || 'Paso ' + step.step) + '</div>';
+            }
+            html += '</div>';
+            // Header institucional
+            html += '<div class="portal-card-header" style="background:linear-gradient(135deg,' + portalColor + '11,' + portalColor + '08);">';
+            html += '<span style="font-size:1.4rem;line-height:1;">' + portalIcon + '</span>';
+            html += '<div>';
+            html += '<div class="portal-card-header-text" style="color:' + portalColor + ';">' + esc(portalName) + '</div>';
+            if (portalShort) html += '<div class="portal-card-header-sub">' + esc(portalShort) + '</div>';
+            html += '</div></div>';
+
+            // ── Preview: mockup realista o checklist ──
+            html += '<div class="portal-card-preview">';
+            if (portal && portal.headerBg) {
+                // MOCKUP REALISTA de portal reconocido
+                html += '<div class="mock-screen">';
+                html += '<div class="mock-header" style="background:' + portal.headerBg + ';"><span>' + portalIcon + '</span> ' + esc(portal.headerText) + '</div>';
+                // Nav con item activo detectado por user_action
+                html += '<div class="mock-nav">';
+                var uaLower = (step.user_action || '').toLowerCase();
+                (portal.nav || []).forEach(function(item) {
+                    var isActive = uaLower.indexOf(item.toLowerCase()) !== -1;
+                    html += '<div class="mock-nav-item' + (isActive ? ' active' : '') + '" style="' + (isActive ? 'color:' + portalColor + ';border-bottom-color:' + portalColor : '') + '">' + esc(item) + '</div>';
+                });
+                html += '</div>';
+                // Breadcrumb
+                if (portal.breadcrumb) html += '<div class="mock-breadcrumb">' + esc(portal.breadcrumb) + '</div>';
+                // Cuerpo con campos con labels
+                html += '<div class="mock-body">';
+                if (portal.fields && portal.fields.length > 0) {
+                    portal.fields.slice(0, 2).forEach(function(f) {
+                        html += '<div class="mock-body-row"><div class="mock-label">' + esc(f) + '</div><div class="mock-input"></div></div>';
+                    });
+                }
+                // CTA con indicador de clic
+                var ctaText = step.user_action ? esc(step.user_action).substring(0, 40) : esc(portal.cta);
+                html += '<div style="position:relative;display:inline-block;margin-top:3px;align-self:center;">';
+                html += '<div class="mock-btn" style="background:' + portalColor + ';">' + (portal.ctaIcon || '→') + ' ' + ctaText + '</div>';
+                html += '<div class="click-pulse" style="top:-6px;right:-8px;"></div>';
+                html += '</div>';
+                html += '</div>';
+                // Hint dinámico
+                if (hintText) html += '<div class="mock-hint">👆 ' + esc(hintText).substring(0, 80) + '</div>';
+                html += '</div>';
+            } else if (!realUrl || !realUrl.startsWith('http')) {
+                // CHECKLIST visual para pasos sin portal (preparación, firma, etc.)
+                html += '<div class="mock-checklist">';
+                html += '<div class="mock-checklist-title">' + pEmoji + ' ' + esc(step.title || 'Paso ' + step.step) + '</div>';
+                if (step.required_documents && step.required_documents.length > 0) {
+                    step.required_documents.slice(0, 4).forEach(function(doc) {
+                        html += '<div class="mock-checklist-item"><div class="mock-check">✓</div>' + esc(doc) + '</div>';
+                    });
+                } else if (step.description) {
+                    var parts = step.description.split(/[,;.]/).filter(function(s) { return s.trim().length > 3; }).slice(0, 4);
+                    parts.forEach(function(part) {
+                        html += '<div class="mock-checklist-item"><div class="mock-check">✓</div>' + esc(part.trim()).substring(0, 50) + '</div>';
+                    });
+                }
+                if (step.user_action) {
+                    html += '<div style="margin-top:auto;padding-top:4px;">';
+                    html += '<div style="font-size:0.42rem;color:#dc3545;font-weight:600;">👆 ' + esc(step.user_action).substring(0, 60) + '</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            } else {
+                // Portal genérico con URL pero no en el mapa
+                html += '<div class="mock-screen">';
+                html += '<div class="mock-header" style="background:' + portalColor + ';">' + portalIcon + ' ' + esc(step.title || 'Portal oficial') + '</div>';
+                html += '<div class="mock-nav"><div class="mock-nav-item active" style="color:' + portalColor + ';border-bottom-color:' + portalColor + ';">Trámite</div><div class="mock-nav-item">Documentación</div><div class="mock-nav-item">Ayuda</div></div>';
+                html += '<div class="mock-body">';
+                html += '<div class="mock-body-row"><div class="mock-label">NIF/CIF</div><div class="mock-input"></div></div>';
+                html += '<div class="mock-body-row"><div class="mock-label">Solicitud</div><div class="mock-input"></div></div>';
+                if (step.user_action) {
+                    html += '<div style="position:relative;display:inline-block;margin-top:3px;align-self:center;">';
+                    html += '<div class="mock-btn" style="background:' + portalColor + ';">→ ' + esc(step.user_action).substring(0, 35) + '</div>';
+                    html += '<div class="click-pulse" style="top:-6px;right:-8px;"></div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+                if (hintText) html += '<div class="mock-hint">👆 ' + esc(hintText).substring(0, 80) + '</div>';
+                html += '</div>';
+            }
+            html += '</div>';
+
+            // Footer
+            html += '<div class="portal-card-footer" style="border-top-color:' + portalColor + ';background:' + portalColor + '08;">';
+            html += '<span class="step-num" style="color:' + portalColor + ';">';
+            html += '<span class="badge rounded-pill" style="background:' + portalColor + ';color:#fff;font-size:0.6rem;margin-right:4px;">' + pName + '</span>';
+            if (step.estimated_time_minutes > 0) html += '<span style="font-size:0.55rem;color:#999;">⏱️ ~' + step.estimated_time_minutes + ' min</span>';
+            html += '</span>';
+            if (realUrl && realUrl.startsWith('http')) {
+                html += '<a href="' + esc(realUrl) + '" target="_blank" rel="noopener" class="step-action" onclick="event.stopPropagation();">Ir al portal ↗</a>';
+            }
+            html += '</div>';
+            html += '</div></div>';
+        });
+        html += '</div></div>';
+    }
+
+    // ── Disclaimer legal ──
+    if (guia.legal_disclaimer) {
+        html += '<div class="alert alert-warning small mt-4 mb-0">⚠️ ' + esc(guia.legal_disclaimer) + '</div>';
+    }
+
+    // Construir modal
+    var modalHtml = '<div id="modalGuiaEnriquecida" class="modal fade" tabindex="-1">' +
+        '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
+        '<div class="modal-header bg-success text-white">' +
+        '<h5 class="modal-title">🗺️ Guía visual completa de solicitud</h5>' +
+        '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>' +
+        '<div class="modal-body">' + html + '</div>' +
+        '<div class="modal-footer">' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button></div>' +
+        '</div></div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    var modalEl = document.getElementById('modalGuiaEnriquecida');
+    modalEl.addEventListener('hidden.bs.modal', function() {
+        // Limpiar arrays temporales de visual guides
+        for (var k in window) { if (k.indexOf('vgLb_') === 0) delete window[k]; }
+        modalEl.remove();
+    });
+    new bootstrap.Modal(modalEl).show();
+}
+
+function esc(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Abre un lightbox con el detalle ampliado de un paso del workflow.
+ * Lee de window._wfSteps para estar sincronizado con la galería y el workflow.
+ *
+ * @param {number} startIdx - índice del paso a mostrar
+ */
+function abrirLightboxWF(startIdx) {
+    var steps = window._wfSteps;
+    if (!steps || steps.length === 0) return;
+
+    var prev = document.getElementById('vgLightboxOverlay');
+    if (prev) prev.remove();
+
+    var currentIdx = startIdx || 0;
+    var phaseEmoji = { preparation: '📋', application: '💻', submission: '📤', tracking: '🔍' };
+    var phaseNames = { preparation: 'Preparación', application: 'Solicitud', submission: 'Envío', tracking: 'Seguimiento' };
+    var phaseColors = { preparation: '#dc3545', application: '#0d6efd', submission: '#198754', tracking: '#6f42c1' };
+
+    function renderStep(idx) {
+        var step = steps[idx];
+        var vg = (window._vgSteps || [])[idx] || {};
+        var pColor = phaseColors[step.phase] || '#6c757d';
+        var pEmoji = phaseEmoji[step.phase] || '📌';
+        var pName = phaseNames[step.phase] || step.phase || '';
+        var realUrl = step.official_link || vg.official_link || '';
+        if (!realUrl && vg.screen_hint && vg.screen_hint.startsWith('http')) realUrl = vg.screen_hint;
+        var displayUrl = '';
+        try { displayUrl = new URL(realUrl).hostname + new URL(realUrl).pathname; } catch(e) {}
+
+        var portal = window.detectarPortalGob(realUrl);
+        var portalColor = portal ? portal.color : pColor;
+        var portalName = portal ? portal.name : (step.title || 'Portal oficial');
+        var portalIcon = portal ? portal.icon : pEmoji;
+        var hintText = step.user_action || vg.image_prompt || '';
+
+        var h = '<div style="padding:1.5rem;">';
+
+        // Header con fase + badge Syntia
+        h += '<div class="d-flex align-items-center justify-content-between mb-3">';
+        h += '<div class="d-flex align-items-center gap-2">';
+        h += '<span class="badge rounded-pill" style="background:' + pColor + ';font-size:0.85rem;padding:6px 14px;">' + pEmoji + ' ' + esc(pName) + '</span>';
+        h += '<span class="text-muted small">Paso ' + step.step + ' de ' + steps.length + '</span>';
+        h += '</div>';
+        h += '<span class="badge" style="background:#198754;color:#fff;font-size:0.65rem;">SYNTIA</span>';
+        h += '</div>';
+
+        // Portal institucional header (si hay URL)
+        if (displayUrl) {
+            h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 12px;background:' + portalColor + '0D;border-radius:8px;border-left:4px solid ' + portalColor + ';">';
+            h += '<span style="font-size:1.5rem;line-height:1;">' + portalIcon + '</span>';
+            h += '<div>';
+            h += '<div style="font-weight:700;font-size:0.85rem;color:' + portalColor + ';">' + esc(portalName) + '</div>';
+            h += '<div style="font-size:0.65rem;color:#666;font-family:monospace;">🔒 ' + esc(displayUrl) + '</div>';
+            h += '</div></div>';
+        }
+
+        // Título y descripción
+        h += '<h5 style="color:#333;font-weight:700;margin-bottom:0.5rem;">' + esc(step.title || 'Paso ' + step.step) + '</h5>';
+        if (step.description) {
+            h += '<p style="color:#555;font-size:0.9rem;margin-bottom:1rem;">' + esc(step.description) + '</p>';
+        }
+
+        // ── Mockup grande de la interfaz del portal ──
+        h += '<div style="border:3px solid ' + portalColor + ';border-radius:10px;overflow:hidden;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.1);">';
+        // Barra del navegador
+        h += '<div style="background:linear-gradient(180deg,#f0f0f0,#e0e0e0);padding:6px 10px;display:flex;align-items:center;gap:5px;border-bottom:1px solid #ccc;">';
+        h += '<span class="portal-card-dot r"></span><span class="portal-card-dot y"></span><span class="portal-card-dot g"></span>';
+        h += '<div style="flex:1;background:#fff;border-radius:4px;padding:3px 10px;font-size:0.7rem;color:#0d6efd;margin-left:6px;font-family:monospace;">🔒 ' + esc(realUrl || step.title || 'portal-oficial.gob.es') + '</div>';
+        h += '</div>';
+        // Header institucional
+        var lbHeaderBg = portal ? portal.headerBg : portalColor;
+        var lbHeaderText = portal ? portal.headerText : (step.title || 'Portal oficial');
+        h += '<div style="background:' + lbHeaderBg + ';padding:8px 14px;color:#fff;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:8px;">';
+        h += '<span style="font-size:1.1rem;">' + portalIcon + '</span> ' + esc(lbHeaderText);
+        h += '</div>';
+        // Nav del portal
+        var lbNav = portal ? portal.nav : ['Trámite', 'Documentación', 'Consultas', 'Ayuda'];
+        var uaLower = (step.user_action || '').toLowerCase();
+        h += '<div style="display:flex;background:#f8f8f8;border-bottom:1px solid #ddd;">';
+        lbNav.forEach(function(navItem) {
+            var isActive = uaLower.indexOf(navItem.toLowerCase()) !== -1;
+            h += '<div style="padding:6px 12px;font-size:0.72rem;color:' + (isActive ? portalColor : '#555') + ';font-weight:' + (isActive ? '700' : '400') + ';border-bottom:' + (isActive ? '3px solid ' + portalColor : '3px solid transparent') + ';cursor:default;">' + esc(navItem) + '</div>';
+        });
+        h += '</div>';
+        // Breadcrumb
+        if (portal && portal.breadcrumb) {
+            h += '<div style="font-size:0.65rem;color:#888;padding:4px 14px;background:#fafafa;border-bottom:1px solid #f0f0f0;">' + esc(portal.breadcrumb) + '</div>';
+        }
+        // Cuerpo del mockup con campos con labels
+        h += '<div style="padding:16px 20px;background:#fff;min-height:100px;display:flex;flex-direction:column;gap:8px;">';
+        var lbFields = (portal && portal.fields) ? portal.fields : ['Identificación', 'Datos del trámite'];
+        lbFields.slice(0, 3).forEach(function(f) {
+            h += '<div style="display:flex;align-items:center;gap:8px;">';
+            h += '<div style="font-size:0.7rem;color:#555;font-weight:600;min-width:35%;text-align:right;">' + esc(f) + '</div>';
+            h += '<div style="flex:1;height:22px;background:#f8f8f8;border:1px solid #ddd;border-radius:4px;"></div>';
+            h += '</div>';
+        });
+        // CTA principal con indicador de clic
+        var lbCta = step.user_action ? esc(step.user_action).substring(0, 50) : (portal ? esc(portal.cta) : esc(step.title || 'Continuar'));
+        var lbCtaIcon = (portal && portal.ctaIcon) ? portal.ctaIcon : '→';
+        h += '<div style="text-align:center;margin-top:6px;position:relative;display:inline-block;align-self:center;">';
+        h += '<div style="padding:8px 22px;border-radius:6px;background:' + portalColor + ';color:#fff;font-size:0.85rem;font-weight:700;box-shadow:0 2px 6px ' + portalColor + '44;cursor:default;display:inline-block;">' + lbCtaIcon + ' ' + lbCta + '</div>';
+        h += '<div class="click-pulse" style="top:-8px;right:-10px;width:26px;height:26px;"></div>';
+        h += '</div>';
+        h += '</div>';
+        // Hint bar inferior
+        if (hintText) {
+            h += '<div style="background:rgba(220,53,69,0.92);color:#fff;font-size:0.72rem;font-weight:600;padding:6px 12px;text-align:center;">👆 ' + esc(hintText) + '</div>';
+        }
+        h += '</div>';
+
+        // Acciones del usuario y del portal
+        if (step.user_action || step.portal_action) {
+            h += '<div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:1rem;">';
+            if (step.user_action) {
+                h += '<div style="margin-bottom:6px;"><strong style="color:#0d6efd;">🧑 Tú debes:</strong> <span style="font-size:0.88rem;">' + esc(step.user_action) + '</span></div>';
+            }
+            if (step.portal_action) {
+                h += '<div><strong style="color:#198754;">🖥️ El portal:</strong> <span style="font-size:0.88rem;">' + esc(step.portal_action) + '</span></div>';
+            }
+            h += '</div>';
+        }
+
+        // Documentos necesarios en este paso
+        if (step.required_documents && step.required_documents.length > 0) {
+            h += '<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px;margin-bottom:1rem;">';
+            h += '<div style="font-weight:600;font-size:0.8rem;color:#856404;margin-bottom:4px;">📎 Documentos necesarios:</div>';
+            h += '<ul style="margin:0;padding-left:1.2rem;font-size:0.82rem;">';
+            step.required_documents.forEach(function(doc) { h += '<li>' + esc(doc) + '</li>'; });
+            h += '</ul></div>';
+        }
+
+        // Tiempo estimado
+        if (step.estimated_time_minutes > 0) {
+            h += '<div style="font-size:0.8rem;color:#666;margin-bottom:1rem;">⏱️ Tiempo estimado: ~' + step.estimated_time_minutes + ' minutos</div>';
+        }
+
+        // Botón para ir al portal real
+        if (realUrl && realUrl.startsWith('http')) {
+            h += '<div style="text-align:center;">';
+            h += '<a href="' + esc(realUrl) + '" target="_blank" rel="noopener" class="btn btn-sm" style="background:' + portalColor + ';color:#fff;font-weight:600;padding:8px 24px;">' + portalIcon + ' Ir a ' + esc(portalName) + ' ↗</a>';
+            h += '</div>';
+        }
+
+        h += '</div>';
+        return h;
+    }
+
+    // Crear overlay
+    var overlay = document.createElement('div');
+    overlay.id = 'vgLightboxOverlay';
+    overlay.className = 'vg-lightbox-overlay active';
+
+    var wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.maxWidth = '680px';
+    wrapper.style.width = '100%';
+
+    var content = document.createElement('div');
+    content.className = 'vg-lightbox-content';
+    content.innerHTML = renderStep(currentIdx);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'vg-lightbox-close';
+    closeBtn.innerHTML = '✕';
+    closeBtn.onclick = function() { overlay.remove(); };
+
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'vg-lightbox-nav prev';
+    prevBtn.innerHTML = '‹';
+    prevBtn.style.display = currentIdx > 0 ? 'block' : 'none';
+    prevBtn.onclick = function(e) {
+        e.stopPropagation();
+        if (currentIdx > 0) {
+            currentIdx--;
+            content.innerHTML = renderStep(currentIdx);
+            content.prepend(closeBtn);
+            prevBtn.style.display = currentIdx > 0 ? 'block' : 'none';
+            nextBtn.style.display = currentIdx < steps.length - 1 ? 'block' : 'none';
+            counter.textContent = (currentIdx + 1) + ' / ' + steps.length;
+        }
+    };
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'vg-lightbox-nav next';
+    nextBtn.innerHTML = '›';
+    nextBtn.style.display = currentIdx < steps.length - 1 ? 'block' : 'none';
+    nextBtn.onclick = function(e) {
+        e.stopPropagation();
+        if (currentIdx < steps.length - 1) {
+            currentIdx++;
+            content.innerHTML = renderStep(currentIdx);
+            content.prepend(closeBtn);
+            prevBtn.style.display = currentIdx > 0 ? 'block' : 'none';
+            nextBtn.style.display = currentIdx < steps.length - 1 ? 'block' : 'none';
+            counter.textContent = (currentIdx + 1) + ' / ' + steps.length;
+        }
+    };
+
+    var counter = document.createElement('div');
+    counter.className = 'vg-lightbox-counter';
+    counter.textContent = (currentIdx + 1) + ' / ' + steps.length;
+
+    content.prepend(closeBtn);
+    content.appendChild(counter);
+    wrapper.appendChild(prevBtn);
+    wrapper.appendChild(content);
+    wrapper.appendChild(nextBtn);
+    overlay.appendChild(wrapper);
+
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+    function onKey(e) {
+        if (!document.getElementById('vgLightboxOverlay')) { document.removeEventListener('keydown', onKey); return; }
+        if (e.key === 'Escape') overlay.remove();
+        if (e.key === 'ArrowLeft') prevBtn.click();
+        if (e.key === 'ArrowRight') nextBtn.click();
+    }
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
 }
 
 /**

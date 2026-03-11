@@ -1,12 +1,18 @@
 package com.syntia.mvp.controller;
 
 import com.syntia.mvp.model.Proyecto;
+import com.syntia.mvp.model.Recomendacion;
 import com.syntia.mvp.model.Usuario;
+import com.syntia.mvp.model.dto.GuiaSubvencionDTO;
 import com.syntia.mvp.model.dto.RecomendacionDTO;
+import com.syntia.mvp.service.BdnsClientService;
 import com.syntia.mvp.service.MotorMatchingService;
+import com.syntia.mvp.service.OpenAiGuiaService;
+import com.syntia.mvp.service.PerfilService;
 import com.syntia.mvp.service.ProyectoService;
 import com.syntia.mvp.service.RecomendacionService;
 import com.syntia.mvp.service.UsuarioService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Controller;
@@ -16,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -37,15 +44,24 @@ public class RecomendacionController {
     private final MotorMatchingService motorMatchingService;
     private final ProyectoService proyectoService;
     private final UsuarioService usuarioService;
+    private final OpenAiGuiaService openAiGuiaService;
+    private final PerfilService perfilService;
+    private final BdnsClientService bdnsClientService;
 
     public RecomendacionController(RecomendacionService recomendacionService,
                                    MotorMatchingService motorMatchingService,
                                    ProyectoService proyectoService,
-                                   UsuarioService usuarioService) {
+                                   UsuarioService usuarioService,
+                                   OpenAiGuiaService openAiGuiaService,
+                                   PerfilService perfilService,
+                                   BdnsClientService bdnsClientService) {
         this.recomendacionService = recomendacionService;
         this.motorMatchingService = motorMatchingService;
         this.proyectoService = proyectoService;
         this.usuarioService = usuarioService;
+        this.openAiGuiaService = openAiGuiaService;
+        this.perfilService = perfilService;
+        this.bdnsClientService = bdnsClientService;
     }
 
     /**
@@ -176,6 +192,69 @@ public class RecomendacionController {
         });
 
         return emitter;
+    }
+
+    /**
+     * Genera (o devuelve si ya existe) la guía enriquecida de solicitud para una recomendación.
+     * <p>
+     * La guía se genera bajo demanda con OpenAI usando un system prompt especializado
+     * en procedimientos administrativos de subvenciones (LGS 38/2003, Ley 39/2015).
+     * El resultado se persiste en BD para evitar regeneraciones innecesarias.
+     *
+     * @param proyectoId      ID del proyecto
+     * @param recomendacionId ID de la recomendación
+     * @return JSON con la guía estructurada completa (GuiaSubvencionDTO)
+     */
+    @GetMapping(value = "/{recomendacionId}/guia-enriquecida", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> obtenerGuiaEnriquecida(@PathVariable Long proyectoId,
+                                                     @PathVariable Long recomendacionId,
+                                                     Authentication authentication) {
+        Usuario usuario = resolverUsuario(authentication);
+        Proyecto proyecto = proyectoService.obtenerPorId(proyectoId, usuario.getId());
+
+        // Buscar la recomendación
+        Recomendacion rec = recomendacionService.obtenerEntidadPorId(recomendacionId, proyectoId);
+
+        // Si ya tiene guía enriquecida, devolverla directamente
+        if (rec.getGuiaEnriquecida() != null && !rec.getGuiaEnriquecida().isBlank()) {
+            GuiaSubvencionDTO guia = openAiGuiaService.deserializarGuia(rec.getGuiaEnriquecida());
+            if (guia != null) {
+                return ResponseEntity.ok(guia);
+            }
+        }
+
+        // Generar guía enriquecida bajo demanda
+        try {
+            com.syntia.mvp.model.Perfil perfil = perfilService.obtenerPerfil(usuario.getId()).orElse(null);
+            com.syntia.mvp.model.Convocatoria convocatoria = rec.getConvocatoria();
+
+            // Obtener detalle BDNS si está disponible
+            String detalleTexto = convocatoria.getIdBdns() != null
+                    ? bdnsClientService.obtenerDetalleTexto(convocatoria.getIdBdns())
+                    : null;
+
+            // URL oficial
+            String urlOficial = convocatoria.getNumeroConvocatoria() != null
+                    ? "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/" + convocatoria.getNumeroConvocatoria()
+                    : convocatoria.getUrlOficial();
+
+            GuiaSubvencionDTO guia = openAiGuiaService.generarGuia(
+                    proyecto, perfil, convocatoria, detalleTexto, urlOficial);
+
+            // Persistir para evitar regeneraciones
+            String guiaJson = openAiGuiaService.serializarGuia(guia);
+            recomendacionService.actualizarGuiaEnriquecida(recomendacionId, guiaJson);
+
+            return ResponseEntity.ok(guia);
+
+        } catch (com.syntia.mvp.service.OpenAiClient.OpenAiUnavailableException e) {
+            return ResponseEntity.status(503).body(
+                    java.util.Map.of("error", "El servicio de IA no está disponible: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(
+                    java.util.Map.of("error", "Error generando la guía: " + e.getMessage()));
+        }
     }
 
     private Usuario resolverUsuario(Authentication authentication) {

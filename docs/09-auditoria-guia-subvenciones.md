@@ -2,6 +2,7 @@
 
 > **Fecha:** 2026-03-10  
 > **Versión del proyecto:** v3.1.0  
+> **Estado:** 📁 ARCHIVADO — Los hallazgos de esta auditoría fueron resueltos en v3.4.0 con la implementación de `OpenAiGuiaService` (guía enriquecida con system prompt especializado en LGS 38/2003) y la galería visual interactiva en `recomendaciones.html`.  
 > **Autor:** Consultor Senior en Subvenciones Públicas y Procesos Administrativos Digitales  
 > **Alcance:** Auditoría de `/docs`, análisis del flujo real de convocatorias BDNS, esquema visual, modelado REST, wireframes y rediseño de guía interna.
 

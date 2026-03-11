@@ -3,6 +3,7 @@ package com.syntia.mvp.service;
 import com.syntia.mvp.model.Recomendacion;
 import com.syntia.mvp.model.dto.RecomendacionDTO;
 import com.syntia.mvp.repository.RecomendacionRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +94,7 @@ public class RecomendacionService {
         dto.setPuntuacion(rec.getPuntuacion());
         dto.setExplicacion(rec.getExplicacion());
         dto.setGuia(rec.getGuia());
+        dto.setGuiaEnriquecida(rec.getGuiaEnriquecida());
         dto.setUsadaIa(rec.isUsadaIa());
         dto.setConvocatoriaId(rec.getConvocatoria().getId());
         dto.setTitulo(rec.getConvocatoria().getTitulo());
@@ -115,6 +117,33 @@ public class RecomendacionService {
         dto.setUrlOficial(url);
 
         return dto;
+    }
+
+    /**
+     * Obtiene la entidad Recomendacion por ID verificando que pertenece al proyecto indicado.
+     * Usa JOIN FETCH para cargar la convocatoria en la misma query.
+     *
+     * @param recomendacionId ID de la recomendación
+     * @param proyectoId      ID del proyecto propietario
+     * @return entidad Recomendacion con convocatoria cargada
+     * @throws EntityNotFoundException si no existe o no pertenece al proyecto
+     */
+    public Recomendacion obtenerEntidadPorId(Long recomendacionId, Long proyectoId) {
+        return recomendacionRepository.findByIdAndProyectoId(recomendacionId, proyectoId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Recomendación " + recomendacionId + " no encontrada para proyecto " + proyectoId));
+    }
+
+    /**
+     * Actualiza el campo guiaEnriquecida de una recomendación existente.
+     * Usado para persistir la guía JSON generada por OpenAiGuiaService.
+     *
+     * @param recomendacionId ID de la recomendación
+     * @param guiaJson        JSON serializado de la guía enriquecida
+     */
+    @Transactional
+    public void actualizarGuiaEnriquecida(Long recomendacionId, String guiaJson) {
+        recomendacionRepository.actualizarGuiaEnriquecida(recomendacionId, guiaJson);
     }
 }
 

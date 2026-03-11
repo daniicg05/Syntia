@@ -22,6 +22,9 @@ public class RecomendacionDTO {
     /** Guía paso a paso generada por IA para solicitar esta convocatoria. */
     private String guia;
 
+    /** Guía enriquecida en formato JSON completo (workflows, guías visuales, documentos, disclaimer). */
+    private String guiaEnriquecida;
+
     /** Indica si la explicación y puntuación fueron generadas por OpenAI (true) o por el motor rule-based (false). */
     private boolean usadaIa;
 
