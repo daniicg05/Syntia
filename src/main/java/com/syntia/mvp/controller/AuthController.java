@@ -78,11 +78,12 @@ public class AuthController {
     }
 
     /**
-     * Redirige la raíz al login.
+     * Muestra la landing page pública (main.html).
+     * Punto de entrada de la aplicación antes del login.
      */
     @GetMapping("/")
     public String home() {
-        return "redirect:/login";
+        return "main";
     }
 
     /**

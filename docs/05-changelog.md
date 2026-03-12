@@ -8,6 +8,30 @@ Formato de cada entrada:
 
 ---
 
+## [4.2.0] – 2026-03-12
+
+### Landing Page Pública
+
+#### Nuevos archivos
+- `MainController.java` (`com.syntia.mvp.controller`) — Mapea `GET /` a `templates/main.html`. Controller de presentación pura sin dependencias de servicios.
+- `templates/main.html` — Landing page pública con botón "Acceder a Syntia" (→ `/login`), enlace "Crear cuenta gratuita" (→ `/registro`) y listado de 4 características de la plataforma. Diseño Bootstrap 5 con fondo degradado azul.
+
+#### Archivos modificados
+- `SecurityConfig.java` — Añadida `"/"` al bloque `requestMatchers(...).permitAll()` en `webSecurityFilterChain`. Sin cambios en cadena JWT ni en `defaultSuccessUrl`.
+
+#### Flujo resultante
+```
+http://localhost:8080/ → main.html → /login → /dashboard
+```
+
+#### Entorno verificado
+- **Compilación:** `mvn compile` → BUILD SUCCESS
+- **Tests:** 18 passed, 0 failures, 0 errors
+
+**Autor(es):** Diego
+
+---
+
 ## [4.1.0] – 2026-03-11
 
 ### Búsqueda rápida: convocatorias sin IA

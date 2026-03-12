@@ -1,7 +1,8 @@
 # Plan de Implementación por Fases: Syntia
 
-> Documento actualizado el **2026-03-11**. Refleja el estado real del código hasta v4.1.0.
+> Documento actualizado el **2026-03-12**. Refleja el estado real del código hasta v4.2.0.
 > Plan de implementación v4.0.0 completado en `docs/13-plan-fases-v4.md`.
+> Landing page documentada en `docs/14-plan-landing-page.md`.
 > Repositorio: https://github.com/daniicg05/Syntia.git
 
 ---
@@ -268,4 +269,21 @@ openai.temperature=0.1              # Determinismo alto
 | 9.4 | Botón `🔎 Buscar convocatorias` en recomendaciones.html | ✅ |
 | 9.5 | Diferenciación visual: tarjetas candidatas (borde amarillo) vs IA (borde limpio + puntuación) | ✅ |
 | 9.6 | Modal guía condicionado a `th:if="${rec.usadaIa}"` | ✅ |
+
+---
+
+## Fase 10 – Landing Page Pública (v4.2.0)
+> **Estado:** ✅ COMPLETADA
+> **Plan detallado:** `docs/14-plan-landing-page.md`
+
+| # | Funcionalidad | Estado |
+|---|--------------|--------|
+| 10.1 | `MainController.java` — mapea `GET /` → `templates/main.html` | ✅ |
+| 10.2 | `SecurityConfig.java` — añadida `"/"` a rutas públicas (`permitAll()`) | ✅ |
+| 10.3 | `main.html` — landing page con botón "Acceder a Syntia" (→ `/login`) y "Crear cuenta" (→ `/registro`) | ✅ |
+
+**Flujo resultante:**
+```
+http://localhost:8080/ → main.html → /login → /dashboard
+```
 

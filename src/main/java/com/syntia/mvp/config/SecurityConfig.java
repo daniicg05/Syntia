@@ -73,7 +73,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/registro", "/aviso-legal", "/css/**", "/javascript/**",
+                        .requestMatchers("/", "/login", "/registro", "/aviso-legal", "/css/**", "/javascript/**",
                                 "/bootstrap/**", "/bootsprap/**", "/error/**").permitAll()
                         .requestMatchers("/admin/**").hasRole(Rol.ADMIN.name())
                         .requestMatchers("/usuario/**").hasRole(Rol.USUARIO.name())
@@ -87,7 +87,7 @@ public class SecurityConfig {
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
-                        .logoutSuccessUrl("/login?logout=true")
+                        .logoutSuccessUrl("/")
                         .permitAll()
                 )
                 .exceptionHandling(Customizer.withDefaults());
