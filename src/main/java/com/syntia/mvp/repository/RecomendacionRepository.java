@@ -111,5 +111,12 @@ public interface RecomendacionRepository extends JpaRepository<Recomendacion, Lo
      */
     @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria WHERE r.proyecto.id = :proyectoId")
     List<Recomendacion> findByProyectoId(@Param("proyectoId") Long proyectoId);
+
+    /**
+     * Obtiene las recomendaciones NO evaluadas por IA de un proyecto (candidatas de búsqueda rápida).
+     * Usada por MotorMatchingService para analizar con IA las candidatas existentes en BD.
+     */
+    @Query("SELECT r FROM Recomendacion r JOIN FETCH r.convocatoria WHERE r.proyecto.id = :proyectoId AND r.usadaIa = false")
+    List<Recomendacion> findByProyectoIdAndUsadaIaFalse(@Param("proyectoId") Long proyectoId);
 }
 

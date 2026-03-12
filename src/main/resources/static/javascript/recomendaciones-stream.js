@@ -181,34 +181,45 @@
         var claseBarra = rec.puntuacion >= 70 ? 'bg-success' :
             (rec.puntuacion >= 40 ? 'bg-warning' : 'bg-secondary');
 
+        // Determinar si la convocatoria está vigente
+        var esVigente = true;
+        if (rec.fechaCierre) {
+            var hoy = new Date().toISOString().split('T')[0];
+            esVigente = rec.fechaCierre >= hoy;
+        }
+
         var titulo = escapeHtml(rec.titulo || 'Sin título');
         var explicacion = escapeHtml(rec.explicacion || '');
         var tipo = rec.tipo ? '<span class="badge bg-primary me-1">' + escapeHtml(rec.tipo) + '</span>' : '';
         var sector = rec.sector ? '<span class="badge bg-secondary me-1">' + escapeHtml(rec.sector) + '</span>' : '';
         var ubicacion = rec.ubicacion ? '<span class="badge bg-info text-dark me-1">' + escapeHtml(rec.ubicacion) + '</span>' : '';
         var fuente = rec.fuente ? '<span class="badge bg-light text-dark border">' + escapeHtml(rec.fuente) + '</span>' : '';
+        var vigenteBadge = esVigente
+            ? '<span class="badge bg-success ms-1">🟢 Vigente</span>'
+            : '<span class="badge bg-danger ms-1">📅 No vigente</span>';
         var urlBtn = rec.urlOficial
             ? '<a href="' + escapeHtml(rec.urlOficial) + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">Ver convocatoria oficial ↗</a>'
             : '';
 
-        // Guardar datos de la recomendación en un atributo data para el botón de guía
         var recId = 'streamRec_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
 
-        // Botón de guía de solicitud
         var guiaBtn = '<button type="button" class="btn btn-success btn-sm" ' +
             'onclick="abrirGuiaStream(window[\'' + recId + '\'])">' +
             '📋 Ver guía de solicitud</button>';
+
+        var cardBorder = esVigente ? 'border-success' : 'border-secondary';
+        var cardOpacity = esVigente ? '' : 'style="opacity:0.75;"';
 
         // Guardar el objeto rec en una variable global temporal
         window[recId] = rec;
 
         return '<div class="col-12">' +
-            '<div class="card shadow-sm border-0 border-start border-3 border-success">' +
+            '<div class="card shadow-sm border-0 border-start border-3 ' + cardBorder + '" ' + cardOpacity + '>' +
             '<div class="card-body d-flex justify-content-between align-items-start flex-wrap gap-2">' +
             '<div class="flex-grow-1">' +
             '<h6 class="card-title mb-1">' + titulo + '</h6>' +
             '<div class="mb-2">' + tipo + sector + ubicacion + fuente +
-            '<span class="badge bg-success ms-1">🤖 IA</span></div>' +
+            '<span class="badge bg-success ms-1">🤖 IA</span>' + vigenteBadge + '</div>' +
             '<p class="text-muted small mb-1">' + explicacion + '</p>' +
             '<div class="d-flex flex-wrap gap-2 mt-2">' + guiaBtn + urlBtn + '</div>' +
             '</div>' +

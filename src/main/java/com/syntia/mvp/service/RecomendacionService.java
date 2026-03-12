@@ -7,6 +7,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -115,6 +116,10 @@ public class RecomendacionService {
             url = rec.getConvocatoria().getUrlOficial();
         }
         dto.setUrlOficial(url);
+
+        // Vigente: sin fecha de cierre (abierta) o fecha de cierre aún no pasada
+        LocalDate fechaCierre = rec.getConvocatoria().getFechaCierre();
+        dto.setVigente(fechaCierre == null || !fechaCierre.isBefore(LocalDate.now()));
 
         return dto;
     }

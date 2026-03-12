@@ -89,14 +89,23 @@ public class RecomendacionController {
         Proyecto proyecto = proyectoService.obtenerPorId(proyectoId, usuario.getId());
 
         // Filtros delegados a BD — una sola query en lugar de cargar todo + filtrar en memoria
-        List<RecomendacionDTO> recomendaciones = recomendacionService.filtrar(proyectoId, tipo, sector, ubicacion);
+        List<RecomendacionDTO> todasRecomendaciones = recomendacionService.filtrar(proyectoId, tipo, sector, ubicacion);
+
+        // Separar vigentes y no vigentes para la vista (roadmap visual)
+        List<RecomendacionDTO> recomendacionesVigentes = todasRecomendaciones.stream()
+                .filter(RecomendacionDTO::isVigente)
+                .collect(java.util.stream.Collectors.toList());
+        List<RecomendacionDTO> recomendacionesNoVigentes = todasRecomendaciones.stream()
+                .filter(r -> !r.isVigente())
+                .collect(java.util.stream.Collectors.toList());
 
         // Selectores de filtro: valores distintos via queries BD (no iterar sobre todos los registros)
         List<String> tipos    = recomendacionService.obtenerTiposDistintos(proyectoId);
         List<String> sectores = recomendacionService.obtenerSectoresDistintos(proyectoId);
 
         model.addAttribute("proyecto", proyecto);
-        model.addAttribute("recomendaciones", recomendaciones);
+        model.addAttribute("recomendaciones", recomendacionesVigentes);
+        model.addAttribute("recomendacionesNoVigentes", recomendacionesNoVigentes);
         model.addAttribute("totalSinFiltro", recomendacionService.contarPorProyecto(proyectoId));
         model.addAttribute("tipos", tipos);
         model.addAttribute("sectores", sectores);
@@ -172,16 +181,16 @@ public class RecomendacionController {
         // Contar desde BD para que el mensaje coincida exactamente con lo que mostrará la vista
         long totalEnBd = recomendacionService.contarPorProyecto(proyectoId);
 
-        if (totalEnBd == 0) {
+        if (generadas.isEmpty() && totalEnBd == 0) {
             redirectAttributes.addFlashAttribute("aviso",
-                    "El motor de IA no encontró convocatorias compatibles con tu proyecto. " +
-                    "Completa el sector, la ubicación y la descripción para mejorar los resultados.");
+                    "No hay candidatas para analizar. Pulsa primero 'Buscar convocatorias' "
+                    + "para obtener candidatas de la BDNS.");
+        } else if (generadas.isEmpty()) {
+            redirectAttributes.addFlashAttribute("aviso",
+                    "La IA no encontró convocatorias que superen el umbral de compatibilidad. "
+                    + "Las candidatas sin evaluar se mantienen disponibles.");
         } else {
-            long conIa = generadas.stream()
-                    .filter(r -> r instanceof com.syntia.mvp.model.Recomendacion rec && rec.isUsadaIa())
-                    .count();
-            String msg = "Se han encontrado " + totalEnBd + " recomendaciones para tu proyecto.";
-            if (conIa > 0) msg += " " + conIa + " analizadas por IA.";
+            String msg = "Se han analizado " + generadas.size() + " convocatorias con IA de un total de " + totalEnBd + ".";
             redirectAttributes.addFlashAttribute("exito", msg);
         }
         return "redirect:/usuario/proyectos/" + proyectoId + "/recomendaciones";

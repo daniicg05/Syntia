@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -43,7 +42,7 @@ public class BusquedaRapidaService {
     private final RecomendacionRepository recomendacionRepository;
 
     /** Máximo de candidatas a guardar por búsqueda rápida. */
-    private static final int MAX_CANDIDATAS = 20;
+    private static final int MAX_CANDIDATAS = 150;
 
     public BusquedaRapidaService(BdnsClientService bdnsClientService,
                                   PerfilService perfilService,
@@ -150,7 +149,6 @@ public class BusquedaRapidaService {
     private Map<String, ConvocatoriaDTO> deduplicarYFiltrar(List<ConvocatoriaDTO> candidatas) {
         Map<String, ConvocatoriaDTO> resultado = new LinkedHashMap<>();
         Set<String> idsBdnsVistos = new HashSet<>();
-        LocalDate hoy = LocalDate.now();
         for (ConvocatoriaDTO dto : candidatas) {
             if (dto.getTitulo() == null) continue;
             if (dto.getIdBdns() != null && !dto.getIdBdns().isBlank()) {
@@ -158,7 +156,7 @@ public class BusquedaRapidaService {
                 idsBdnsVistos.add(dto.getIdBdns());
             }
             if (resultado.containsKey(dto.getTitulo())) continue;
-            if (dto.getFechaCierre() != null && dto.getFechaCierre().isBefore(hoy)) continue;
+            // NO descartar caducadas: se conservan para mostrar separadas (vigentes vs no vigentes)
             resultado.put(dto.getTitulo(), dto);
         }
         return resultado;

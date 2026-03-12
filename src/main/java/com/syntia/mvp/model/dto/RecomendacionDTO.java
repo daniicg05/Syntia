@@ -37,5 +37,8 @@ public class RecomendacionDTO {
     private String urlOficial;
     private String fuente;
     private LocalDate fechaCierre;
+
+    /** true si la convocatoria está vigente (fechaCierre == null o >= hoy). */
+    private boolean vigente;
 }
 

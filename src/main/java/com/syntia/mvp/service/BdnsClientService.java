@@ -264,15 +264,25 @@ public class BdnsClientService {
     /** Mínimo de resultados antes de activar el fallback progresivo. */
     private static final int MIN_RESULTADOS_FALLBACK = 3;
 
+    /** Tamaño de página máximo soportado por la API BDNS. */
+    private static final int TAM_PAG_BDNS = 50;
+
+    /** Número máximo de páginas a recorrer por cada llamada territorial (ESTADO / AUTONOMICA). */
+    private static final int MAX_PAGINAS = 3;
+
     /**
      * Ejecuta la búsqueda real contra la API BDNS según los filtros.
      * Si hay ccaa, hace doble búsqueda paralela ESTADO+AUTONOMICA.
+     * <p>
+     * Multipaginación: recorre hasta {@link #MAX_PAGINAS} páginas de {@link #TAM_PAG_BDNS}
+     * resultados cada una, por cada nivel territorial, para recuperar un volumen
+     * alto de candidatas coherente con las ~615K convocatorias de la BDNS.
      */
     private List<ConvocatoriaDTO> ejecutarBusquedaFiltrada(com.syntia.mvp.model.dto.FiltrosBdns filtros) {
         String ccaa = filtros.nivel2();
         String desc = filtros.descripcion();
 
-        // Si hay CCAA → doble búsqueda paralela
+        // Si hay CCAA → doble búsqueda paralela multipágina
         if (ccaa != null) {
             List<ConvocatoriaDTO> combinadas = new CopyOnWriteArrayList<>();
             String ccaaEncoded = URLEncoder.encode(ccaa, StandardCharsets.UTF_8);
@@ -280,29 +290,48 @@ public class BdnsClientService {
             @SuppressWarnings("resource")
             ExecutorService executor = Executors.newCachedThreadPool();
             try {
-                // Llamada A: convocatorias estatales
+                // Llamada A: convocatorias estatales (hasta MAX_PAGINAS páginas)
                 CompletableFuture<Void> futuroEstatal = CompletableFuture.runAsync(() -> {
-                    try {
-                        String url = BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=0&tamPag=10&vigente=true&nivel1=ESTADO";
-                        if (desc != null) url += "&descripcion=" + URLEncoder.encode(desc, StandardCharsets.UTF_8) + "&descripcionTipoBusqueda=1";
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> respuesta = restClient.get().uri(url).retrieve().body(Map.class);
-                        if (respuesta != null) combinadas.addAll(mapearRespuesta(respuesta));
-                    } catch (Exception e) {
-                        log.warn("BDNS filtros ESTADO: {}", e.getMessage());
+                    for (int pag = 0; pag < MAX_PAGINAS; pag++) {
+                        try {
+                            String url = BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=" + pag + "&tamPag=" + TAM_PAG_BDNS + "&nivel1=ESTADO";
+                            if (desc != null) url += "&descripcion=" + URLEncoder.encode(desc, StandardCharsets.UTF_8) + "&descripcionTipoBusqueda=1";
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> respuesta = restClient.get().uri(url).retrieve().body(Map.class);
+                            if (respuesta != null) {
+                                List<ConvocatoriaDTO> pagina = mapearRespuesta(respuesta);
+                                combinadas.addAll(pagina);
+                                // Si esta página devolvió menos de TAM_PAG_BDNS, no hay más páginas
+                                if (pagina.size() < TAM_PAG_BDNS) break;
+                            } else {
+                                break;
+                            }
+                        } catch (Exception e) {
+                            log.warn("BDNS filtros ESTADO pag={}: {}", pag, e.getMessage());
+                            break;
+                        }
                     }
                 }, executor);
 
-                // Llamada B: convocatorias autonómicas de la CCAA
+                // Llamada B: convocatorias autonómicas de la CCAA (hasta MAX_PAGINAS páginas)
                 CompletableFuture<Void> futuroAutonomica = CompletableFuture.runAsync(() -> {
-                    try {
-                        String url = BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=0&tamPag=10&vigente=true&nivel1=AUTONOMICA&nivel2=" + ccaaEncoded;
-                        if (desc != null) url += "&descripcion=" + URLEncoder.encode(desc, StandardCharsets.UTF_8) + "&descripcionTipoBusqueda=1";
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> respuesta = restClient.get().uri(url).retrieve().body(Map.class);
-                        if (respuesta != null) combinadas.addAll(mapearRespuesta(respuesta));
-                    } catch (Exception e) {
-                        log.warn("BDNS filtros AUTONOMICA ccaa='{}': {}", ccaa, e.getMessage());
+                    for (int pag = 0; pag < MAX_PAGINAS; pag++) {
+                        try {
+                            String url = BDNS_BUSQUEDA + "?vpn=GE&vln=es&numPag=" + pag + "&tamPag=" + TAM_PAG_BDNS + "&nivel1=AUTONOMICA&nivel2=" + ccaaEncoded;
+                            if (desc != null) url += "&descripcion=" + URLEncoder.encode(desc, StandardCharsets.UTF_8) + "&descripcionTipoBusqueda=1";
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> respuesta = restClient.get().uri(url).retrieve().body(Map.class);
+                            if (respuesta != null) {
+                                List<ConvocatoriaDTO> pagina = mapearRespuesta(respuesta);
+                                combinadas.addAll(pagina);
+                                if (pagina.size() < TAM_PAG_BDNS) break;
+                            } else {
+                                break;
+                            }
+                        } catch (Exception e) {
+                            log.warn("BDNS filtros AUTONOMICA ccaa='{}' pag={}: {}", ccaa, pag, e.getMessage());
+                            break;
+                        }
                     }
                 }, executor);
 
@@ -314,13 +343,26 @@ public class BdnsClientService {
             return deduplicarPorIdBdns(combinadas);
         }
 
-        // Sin CCAA → búsqueda simple con descripción
+        // Sin CCAA → búsqueda multipágina con descripción
         if (desc != null) {
-            return buscarPorTexto(desc, 0, 20);
+            return buscarMultipagina(desc);
         }
 
         // Ni CCAA ni descripción → genérico
-        return buscarPorTexto("subvencion pyme", 0, 20);
+        return buscarMultipagina("subvencion pyme");
+    }
+
+    /**
+     * Busca en BDNS recorriendo hasta {@link #MAX_PAGINAS} páginas para obtener más resultados.
+     */
+    private List<ConvocatoriaDTO> buscarMultipagina(String keywords) {
+        List<ConvocatoriaDTO> todos = new ArrayList<>();
+        for (int pag = 0; pag < MAX_PAGINAS; pag++) {
+            List<ConvocatoriaDTO> pagina = buscarPorTexto(keywords, pag, TAM_PAG_BDNS);
+            todos.addAll(pagina);
+            if (pagina.size() < TAM_PAG_BDNS) break;
+        }
+        return todos;
     }
 
     /**
