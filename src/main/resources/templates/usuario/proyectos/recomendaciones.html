@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Syntia – Recomendaciones: ' + ${proyecto.nombre}">Syntia – Recomendaciones</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        /* ── Puntuación ── */
+        .puntuacion-alta  { color: #198754; }
+        .puntuacion-media { color: #ffc107; }
+        .puntuacion-baja  { color: #6c757d; }
+
+        /* ── Stepper horizontal (flujo visual de pantallas) ── */
+        .stepper-flow {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 1rem 0.5rem;
+            overflow-x: auto;
+            gap: 0;
+        }
+        .stepper-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 80px;
+            position: relative;
+            z-index: 1;
+        }
+        .stepper-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            background: #e9ecef;
+            border: 3px solid #dee2e6;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .stepper-step.active .stepper-icon {
+            background: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+        }
+        .stepper-step.completed .stepper-icon {
+            background: #198754;
+            border-color: #198754;
+            color: white;
+        }
+        .stepper-label {
+            font-size: 0.6rem;
+            text-align: center;
+            margin-top: 6px;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+            max-width: 80px;
+        }
+        .stepper-step.active .stepper-label { color: #0d6efd; }
+        .stepper-step.completed .stepper-label { color: #198754; }
+
+        /* Conectores entre pasos */
+        .stepper-connector {
+            flex: 1;
+            height: 3px;
+            background: #dee2e6;
+            align-self: center;
+            margin-top: -18px;
+            min-width: 20px;
+            position: relative;
+            z-index: 0;
+        }
+        .stepper-connector.active {
+            background: linear-gradient(90deg, #198754, #0d6efd);
+        }
+        .stepper-connector.completed {
+            background: #198754;
+        }
+
+        /* ── Timeline vertical (pasos de IA) ── */
+        .guia-timeline {
+            position: relative;
+            padding-left: 0;
+        }
+        .guia-timeline::before {
+            content: '';
+            position: absolute;
+            left: 23px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #0d6efd 0%, #198754 100%);
+            border-radius: 2px;
+        }
+        .guia-paso {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            position: relative;
+            opacity: 0;
+            transform: translateX(-10px);
+            animation: fadeInPaso 0.4s ease forwards;
+        }
+        .guia-paso:last-child { margin-bottom: 0; }
+        @keyframes fadeInPaso {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .guia-paso:nth-child(1) { animation-delay: 0.05s; }
+        .guia-paso:nth-child(2) { animation-delay: 0.1s; }
+        .guia-paso:nth-child(3) { animation-delay: 0.15s; }
+        .guia-paso:nth-child(4) { animation-delay: 0.2s; }
+        .guia-paso:nth-child(5) { animation-delay: 0.25s; }
+        .guia-paso:nth-child(6) { animation-delay: 0.3s; }
+        .guia-paso:nth-child(7) { animation-delay: 0.35s; }
+        .guia-paso:nth-child(8) { animation-delay: 0.4s; }
+
+        .guia-paso-icon {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            background: white;
+            border: 3px solid #0d6efd;
+            z-index: 1;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .guia-paso-content {
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            flex: 1;
+            border-left: 3px solid #0d6efd;
+        }
+        .guia-paso-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .guia-paso-text {
+            font-size: 0.85rem;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        /* Colores por paso */
+        .guia-paso[data-step="1"] .guia-paso-icon { border-color: #dc3545; }
+        .guia-paso[data-step="1"] .guia-paso-content { border-left-color: #dc3545; }
+        .guia-paso[data-step="1"] .guia-paso-label { color: #dc3545; }
+        .guia-paso[data-step="2"] .guia-paso-icon { border-color: #fd7e14; }
+        .guia-paso[data-step="2"] .guia-paso-content { border-left-color: #fd7e14; }
+        .guia-paso[data-step="2"] .guia-paso-label { color: #fd7e14; }
+        .guia-paso[data-step="3"] .guia-paso-icon { border-color: #0d6efd; }
+        .guia-paso[data-step="3"] .guia-paso-content { border-left-color: #0d6efd; }
+        .guia-paso[data-step="3"] .guia-paso-label { color: #0d6efd; }
+        .guia-paso[data-step="4"] .guia-paso-icon { border-color: #6f42c1; }
+        .guia-paso[data-step="4"] .guia-paso-content { border-left-color: #6f42c1; }
+        .guia-paso[data-step="4"] .guia-paso-label { color: #6f42c1; }
+        .guia-paso[data-step="5"] .guia-paso-icon { border-color: #20c997; }
+        .guia-paso[data-step="5"] .guia-paso-content { border-left-color: #20c997; }
+        .guia-paso[data-step="5"] .guia-paso-label { color: #20c997; }
+        .guia-paso[data-step="6"] .guia-paso-icon { border-color: #0dcaf0; }
+        .guia-paso[data-step="6"] .guia-paso-content { border-left-color: #0dcaf0; }
+        .guia-paso[data-step="6"] .guia-paso-label { color: #0dcaf0; }
+        .guia-paso[data-step="7"] .guia-paso-icon { border-color: #198754; }
+        .guia-paso[data-step="7"] .guia-paso-content { border-left-color: #198754; }
+        .guia-paso[data-step="7"] .guia-paso-label { color: #198754; }
+        .guia-paso[data-step="8"] .guia-paso-icon { border-color: #ffc107; }
+        .guia-paso[data-step="8"] .guia-paso-content { border-left-color: #ffc107; background: #fff8e1; }
+        .guia-paso[data-step="8"] .guia-paso-label { color: #856404; }
+
+        /* ── Scrollbar para stepper en móvil ── */
+        .stepper-flow::-webkit-scrollbar { height: 4px; }
+        .stepper-flow::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 2px; }
+
+        /* ── Portal card (representación fiel del portal oficial) ── */
+        .portal-card {
+            border: 3px solid #198754;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+        .portal-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(25,135,84,0.2);
+        }
+        .portal-card-syntia-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #198754;
+            color: #fff;
+            font-size: 0.55rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            z-index: 3;
+        }
+        .portal-card-bar {
+            background: linear-gradient(180deg, #f0f0f0, #e0e0e0);
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border-bottom: 1px solid #ccc;
+        }
+        .portal-card-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .portal-card-dot.r { background: #ff5f57; }
+        .portal-card-dot.y { background: #ffbd2e; }
+        .portal-card-dot.g { background: #28c840; }
+        .portal-card-url {
+            flex: 1;
+            background: #fff;
+            border-radius: 3px;
+            padding: 2px 8px;
+            font-size: 0.58rem;
+            color: #0d6efd;
+            margin-left: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: monospace;
+        }
+        .portal-card-header {
+            padding: 10px 12px 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .portal-card-header img {
+            width: 28px; height: 28px;
+            object-fit: contain;
+        }
+        .portal-card-header-text {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.2;
+        }
+        .portal-card-header-sub {
+            font-size: 0.55rem;
+            color: #888;
+        }
+        .portal-card-preview {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        /* Mockup de interfaz de portal */
+        .mock-screen { width:100%; height:100%; display:flex; flex-direction:column; font-family: -apple-system, 'Segoe UI', sans-serif; }
+        .mock-header { padding:5px 10px; color:#fff; font-size:0.52rem; font-weight:700; display:flex; align-items:center; gap:5px; white-space:nowrap; overflow:hidden; min-height:22px; }
+        .mock-header span { opacity:0.9; }
+        .mock-nav { display:flex; gap:0; background:#f5f5f5; border-bottom:1px solid #ddd; flex-shrink:0; }
+        .mock-nav-item { padding:3px 7px; font-size:0.44rem; color:#555; border-right:1px solid #eee; white-space:nowrap; cursor:default; }
+        .mock-nav-item.active { background:#fff; color:#000; font-weight:700; border-bottom:2px solid currentColor; }
+        .mock-breadcrumb { font-size:0.38rem; color:#888; padding:3px 8px; background:#fafafa; border-bottom:1px solid #f0f0f0; }
+        .mock-breadcrumb b { color:#333; }
+        .mock-body { flex:1; padding:8px; display:flex; flex-direction:column; gap:4px; background:#fff; position:relative; overflow:hidden; }
+        .mock-body-row { display:flex; align-items:center; gap:4px; width:100%; }
+        .mock-label { font-size:0.38rem; color:#555; font-weight:600; min-width:30%; text-align:right; padding-right:4px; }
+        .mock-input { flex:1; height:12px; background:#f8f8f8; border:1px solid #ddd; border-radius:2px; }
+        .mock-btn { padding:4px 14px; border-radius:4px; color:#fff; font-size:0.52rem; font-weight:700; border:none; position:relative; cursor:default; box-shadow:0 1px 4px rgba(0,0,0,0.18); letter-spacing:0.2px; }
+        .mock-btn-outline { padding:3px 10px; border-radius:3px; background:transparent; font-size:0.48rem; font-weight:600; cursor:default; }
+        .mock-field { width:80%; height:12px; background:#f0f0f0; border:1px solid #ddd; border-radius:2px; }
+        .mock-sidebar { display:flex; flex-direction:column; gap:2px; position:absolute; right:6px; top:4px; }
+        .mock-sidebar-item { font-size:0.36rem; color:#0d6efd; text-decoration:underline; cursor:default; }
+        /* Diseño alternativo para pasos sin portal (preparación, documentación) */
+        .mock-checklist { width:100%; height:100%; display:flex; flex-direction:column; padding:10px; gap:3px; background:linear-gradient(135deg,#f8fffe,#f0f7ff); }
+        .mock-checklist-title { font-size:0.55rem; font-weight:700; color:#333; margin-bottom:2px; display:flex; align-items:center; gap:4px; }
+        .mock-checklist-item { font-size:0.42rem; color:#444; display:flex; align-items:center; gap:4px; padding:2px 0; }
+        .mock-check { width:10px; height:10px; border:1.5px solid #198754; border-radius:2px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.35rem; }
+        .mock-check.done { background:#198754; color:#fff; }
+        /* Indicador pulsante de "haz clic aquí" */
+        .click-pulse {
+            position: absolute;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: rgba(220,53,69,0.25);
+            border: 2px solid #dc3545;
+            animation: pulseClick 1.5s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .click-pulse::after {
+            content: '👆';
+            position: absolute;
+            top: -16px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+        }
+        @keyframes pulseClick {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+        }
+        .mock-hint {
+            position: absolute;
+            bottom: 4px; left: 4px; right: 4px;
+            background: rgba(220,53,69,0.92);
+            color: #fff;
+            font-size: 0.48rem;
+            font-weight: 600;
+            padding: 3px 6px;
+            border-radius: 3px;
+            text-align: center;
+            z-index: 4;
+        }
+        .portal-card-preview iframe {
+            width: 200%;
+            height: 280%;
+            transform: scale(0.5);
+            transform-origin: top left;
+            border: none;
+            pointer-events: none;
+        }
+        .portal-card-preview-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .portal-card-preview-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+        }
+        .portal-card-footer {
+            padding: 6px 10px;
+            background: #f0fdf4;
+            border-top: 2px solid #198754;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .portal-card-footer .step-num {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #198754;
+        }
+        .portal-card-footer .step-action {
+            font-size: 0.6rem;
+            color: #0d6efd;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* ── Lightbox CSS puro ── */
+        .vg-lightbox-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        .vg-lightbox-overlay.active {
+            display: flex;
+        }
+        .vg-lightbox-content {
+            background: #fff;
+            border-radius: 12px;
+            max-width: 640px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: lbFadeIn 0.3s ease;
+        }
+        @keyframes lbFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .vg-lightbox-close {
+            position: absolute;
+            top: 10px; right: 14px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #666;
+            cursor: pointer;
+            z-index: 1;
+            line-height: 1;
+        }
+        .vg-lightbox-close:hover { color: #000; }
+        .vg-lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            border: none;
+            font-size: 1.5rem;
+            padding: 0.5rem 0.8rem;
+            cursor: pointer;
+            border-radius: 50%;
+            line-height: 1;
+        }
+        .vg-lightbox-nav:hover { background: rgba(0,0,0,0.6); }
+        .vg-lightbox-nav.prev { left: -60px; }
+        .vg-lightbox-nav.next { right: -60px; }
+        @media (max-width: 768px) {
+            .vg-lightbox-nav.prev { left: 4px; }
+            .vg-lightbox-nav.next { right: 4px; }
+        }
+        .vg-lightbox-counter {
+            text-align: center;
+            padding: 8px;
+            font-size: 0.75rem;
+            color: #999;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
+
+<div class="container py-5">
+
+    <!-- Migas de pan -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/usuario/dashboard}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a th:href="@{/usuario/proyectos}">Mis Proyectos</a></li>
+            <li class="breadcrumb-item">
+                <a th:href="@{/usuario/proyectos/{id}(id=${proyecto.id})}" th:text="${proyecto.nombre}"></a>
+            </li>
+            <li class="breadcrumb-item active">Recomendaciones</li>
+        </ol>
+    </nav>
+
+    <!-- Cabecera -->
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="mb-1">Recomendaciones IA</h2>
+            <p class="text-muted mb-0">
+                Proyecto: <strong th:text="${proyecto.nombre}"></strong>
+                <span class="badge bg-secondary ms-2" th:if="${proyecto.sector}" th:text="${proyecto.sector}"></span>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <!-- Botón búsqueda rápida (sin IA, solo BDNS) -->
+            <form th:action="@{/usuario/proyectos/{id}/recomendaciones/buscar-candidatas(id=${proyecto.id})}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-primary">
+                    🔎 Buscar convocatorias
+                </button>
+            </form>
+            <!-- Botón SSE (streaming con feedback en tiempo real) -->
+            <button type="button" id="btnAnalizar" class="btn btn-primary"
+                    th:onclick="|iniciarAnalisisStream(${proyecto.id})|">
+                🤖 Analizar con IA
+            </button>
+            <!-- Formulario síncrono como fallback (oculto por defecto, visible sin JS) -->
+            <noscript>
+                <form th:action="@{/usuario/proyectos/{id}/recomendaciones/generar(id=${proyecto.id})}" method="post">
+                    <button type="submit" class="btn btn-primary">
+                        🤖 Analizar con IA
+                    </button>
+                </form>
+            </noscript>
+        </div>
+    </div>
+
+    <!-- Panel de progreso SSE (oculto por defecto) -->
+    <div id="panelProgreso" class="card shadow-sm mb-4 border-0 border-start border-3 border-primary" style="display:none;">
+        <div class="card-body">
+            <div class="d-flex align-items-center mb-2">
+                <div class="spinner-border spinner-border-sm text-primary me-2" id="spinnerProgreso" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <div id="estadoTexto" class="fw-semibold">Iniciando análisis...</div>
+            </div>
+            <div class="progress mb-2" style="height: 8px;">
+                <div id="barraProgreso" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                     role="progressbar" style="width: 0%"></div>
+            </div>
+            <div class="d-flex justify-content-between">
+                <div id="progresoDetalle" class="small text-muted"></div>
+                <div class="small text-muted">
+                    Encontradas: <span id="contadorResultados" class="fw-bold text-success">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor para resultados que llegan en streaming (antes de la sección estática) -->
+    <div id="resultadosStream" class="row g-3 mb-4"></div>
+
+    <!-- Alertas -->
+    <div th:if="${exito}" class="alert alert-success alert-dismissible fade show">
+        <span th:text="${exito}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${aviso}" class="alert alert-warning alert-dismissible fade show">
+        <span th:text="${aviso}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Aviso legal -->
+    <div class="alert alert-info small mb-4" role="alert">
+        <strong>Aviso legal:</strong> Las recomendaciones tienen carácter orientativo.
+        Verifica siempre los requisitos oficiales antes de presentar cualquier solicitud.
+    </div>
+
+    <!-- Sin recomendaciones -->
+    <div th:if="${totalSinFiltro == 0}" class="card shadow-sm mb-4 border-0">
+        <div class="card-body text-center py-5">
+            <div class="fs-1 mb-2">🔎</div>
+            <p class="text-muted mb-1">Aún no hay recomendaciones para este proyecto.</p>
+            <p class="text-muted small mb-0">
+                Pulsa <strong>🔎 Buscar convocatorias</strong> para ver candidatas de la BDNS por sector y ubicación (instantáneo, sin IA).
+                <br/>Luego pulsa <strong>🤖 Analizar con IA</strong> para obtener puntuación y guía detallada de cada convocatoria.
+            </p>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div th:if="${totalSinFiltro > 0}" class="card shadow-sm mb-4 border-0">
+        <div class="card-body">
+            <form th:action="@{/usuario/proyectos/{id}/recomendaciones(id=${proyecto.id})}"
+                  method="get" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Tipo</label>
+                    <select th:if="${!#lists.isEmpty(tipos)}" name="tipo" class="form-select form-select-sm">
+                        <option value="" th:selected="${filtrTipo == null or filtrTipo == ''}">Todos los tipos</option>
+                        <option th:each="t : ${tipos}" th:value="${t}" th:text="${t}"
+                                th:selected="${filtrTipo != null and filtrTipo == t}"></option>
+                    </select>
+                    <span th:unless="${!#lists.isEmpty(tipos)}"
+                          class="form-control form-control-sm text-muted bg-light" style="font-size:0.8rem;">Sin tipos disponibles</span>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Sector</label>
+                    <select th:if="${!#lists.isEmpty(sectores)}" name="sector" class="form-select form-select-sm">
+                        <option value="" th:selected="${filtrSector == null or filtrSector == ''}">Todos los sectores</option>
+                        <option th:each="s : ${sectores}" th:value="${s}" th:text="${s}"
+                                th:selected="${filtrSector != null and filtrSector == s}"></option>
+                    </select>
+                    <span th:unless="${!#lists.isEmpty(sectores)}"
+                          class="form-control form-control-sm text-muted bg-light" style="font-size:0.8rem;">Sin sectores — regenera el análisis</span>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Ubicación <span class="text-muted fw-normal">(búsqueda parcial)</span></label>
+                    <input type="text" name="ubicacion" class="form-control form-control-sm"
+                           placeholder="Ej: Cataluña, Madrid..." th:value="${filtrUbicacion != null ? filtrUbicacion : ''}">
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-primary btn-sm flex-fill">Filtrar</button>
+                    <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${proyecto.id})}"
+                       class="btn btn-outline-secondary btn-sm flex-fill">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div th:if="${totalSinFiltro > 0}">
+        <p class="text-muted small mb-3">
+            <span th:if="${filtrTipo == null and filtrSector == null and (filtrUbicacion == null or filtrUbicacion == '')}">
+                <strong th:text="${totalSinFiltro}"></strong> convocatorias encontradas
+                (<strong th:text="${#lists.size(recomendaciones)}"></strong> vigentes,
+                 <strong th:text="${#lists.size(recomendacionesNoVigentes)}"></strong> no vigentes).
+            </span>
+            <span th:unless="${filtrTipo == null and filtrSector == null and (filtrUbicacion == null or filtrUbicacion == '')}">
+                Mostrando <strong th:text="${#lists.size(recomendaciones) + #lists.size(recomendacionesNoVigentes)}"></strong>
+                de <strong th:text="${totalSinFiltro}"></strong> convocatorias.
+            </span>
+        </p>
+
+        <div th:if="${#lists.isEmpty(recomendaciones) and #lists.isEmpty(recomendacionesNoVigentes)}" class="alert alert-warning">
+            No hay recomendaciones que coincidan con los filtros seleccionados.
+        </div>
+
+        <!-- ══ SECCIÓN: CONVOCATORIAS VIGENTES ══ -->
+        <div th:if="${!#lists.isEmpty(recomendaciones)}" class="mb-4">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="badge bg-success fs-6">🟢 Vigentes</span>
+                <span class="text-muted small" th:text="${#lists.size(recomendaciones)} + ' convocatorias con plazo abierto'"></span>
+            </div>
+        <div class="row g-3">
+            <div class="col-12" th:each="rec : ${recomendaciones}">
+                <div class="card shadow-sm"
+                     th:classappend="${rec.usadaIa} ? 'border-0' : 'border-start border-3 border-warning'">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1" th:text="${rec.titulo}"></h5>
+                                <div class="mb-2">
+                                    <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
+                                    <span class="badge bg-secondary me-1" th:if="${rec.sector}" th:text="${rec.sector}"></span>
+                                    <span class="badge bg-info text-dark me-1" th:if="${rec.ubicacion}" th:text="${rec.ubicacion}"></span>
+                                    <span class="badge bg-light text-dark border" th:if="${rec.fuente}" th:text="${rec.fuente}"></span>
+                                    <span th:if="${rec.usadaIa}" class="badge bg-success ms-1" title="Analizado por OpenAI gpt-4.1">🤖 IA</span>
+                                    <span th:unless="${rec.usadaIa}" class="badge bg-warning text-dark ms-1">🔎 Candidata BDNS</span>
+                                </div>
+                                <p class="text-muted small mb-2" th:text="${rec.explicacion}"></p>
+                                <p class="small mb-0" th:if="${rec.fechaCierre}">
+                                    <strong>Fecha límite:</strong>
+                                    <span th:text="${#temporals.format(rec.fechaCierre, 'dd/MM/yyyy')}" th:classappend="${rec.fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-danger fw-bold' : 'text-muted'"></span>
+                                </p>
+                            </div>
+                            <!-- Puntuación: solo mostrar si fue evaluada por IA -->
+                            <div th:if="${rec.usadaIa}" class="text-center ms-3" style="min-width:80px;">
+                                <div class="display-6 fw-bold"
+                                     th:classappend="${rec.puntuacion >= 70} ? 'puntuacion-alta' : (${rec.puntuacion >= 40} ? 'puntuacion-media' : 'puntuacion-baja')"
+                                     th:text="${rec.puntuacion}"></div>
+                                <div class="small text-muted">/ 100</div>
+                                <div class="progress mt-1" style="height:6px;">
+                                    <div class="progress-bar"
+                                         th:classappend="${rec.puntuacion >= 70} ? 'bg-success' : (${rec.puntuacion >= 40} ? 'bg-warning' : 'bg-secondary')"
+                                         role="progressbar" th:style="'width:' + ${rec.puntuacion} + '%'"></div>
+                                </div>
+                            </div>
+                            <!-- Indicador visual para candidatas sin evaluar -->
+                            <div th:unless="${rec.usadaIa}" class="text-center ms-3" style="min-width:80px;">
+                                <div class="display-6 text-warning">🔎</div>
+                                <div class="small text-muted">Sin evaluar</div>
+                            </div>
+                        </div>
+                        <div class="mt-3 d-flex flex-wrap gap-2">
+                            <!-- Guías: solo para las evaluadas por IA -->
+                            <button th:if="${rec.usadaIa}" type="button" class="btn btn-success btn-sm"
+                                    th:onclick="|abrirGuia('modalGuia${rec.id}')|">
+                                📋 Ver guía de solicitud
+                            </button>
+                            <button th:if="${rec.usadaIa}" type="button" class="btn btn-outline-success btn-sm"
+                                    th:data-proyecto-id="${proyecto.id}"
+                                    th:data-rec-id="${rec.id}"
+                                    onclick="solicitarGuiaEnriquecida(this)">
+                                🗺️ Guía visual completa
+                            </button>
+
+                            <!-- Enlace convocatoria oficial (siempre visible) -->
+                            <a th:if="${rec.urlOficial}" th:href="${rec.urlOficial}"
+                               target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">
+                                Ver convocatoria oficial ↗
+                            </a>
+
+                            <!-- Para candidatas sin evaluar: invitar a analizar con IA -->
+                            <span th:unless="${rec.usadaIa}" class="text-muted small align-self-center">
+                                Pulsa <strong>Analizar con IA</strong> para obtener puntuación y guía
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ MODAL GUÍA CON STEPPER VISUAL (solo si evaluada por IA) ══ -->
+                <div th:if="${rec.usadaIa}" th:id="|modalGuia${rec.id}|" class="modal fade" tabindex="-1" role="dialog">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">📋 Guía de solicitud — Flujo completo</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+
+                                <!-- Título de la convocatoria -->
+                                <div class="alert alert-light border mb-3">
+                                    <div class="small text-muted mb-1">Convocatoria</div>
+                                    <strong th:text="${rec.titulo}"></strong>
+                                    <div class="mt-1">
+                                        <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
+                                        <span class="badge bg-secondary" th:if="${rec.sector}" th:text="${rec.sector}"></span>
+                                    </div>
+                                </div>
+
+                                <!-- ── STEPPER VISUAL HORIZONTAL (flujo de pantallas) ── -->
+                                <div class="card border-0 bg-white shadow-sm mb-4">
+                                    <div class="card-body py-3">
+                                        <div class="small text-muted text-center mb-2 fw-semibold">
+                                            📍 Flujo del proceso de solicitud
+                                        </div>
+                                        <div class="stepper-flow" role="list" aria-label="Flujo de solicitud">
+                                            <div class="stepper-step completed"><div class="stepper-icon">🏛️</div><div class="stepper-label">Portal convocatoria</div></div>
+                                            <div class="stepper-connector completed"></div>
+                                            <div class="stepper-step completed"><div class="stepper-icon">📄</div><div class="stepper-label">Requisitos legales</div></div>
+                                            <div class="stepper-connector completed"></div>
+                                            <div class="stepper-step active"><div class="stepper-icon">📎</div><div class="stepper-label">Documentación</div></div>
+                                            <div class="stepper-connector active"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">💻</div><div class="stepper-label">Sede electrónica</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">📅</div><div class="stepper-label">Plazos</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">⚖️</div><div class="stepper-label">Régimen concesión</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">✅</div><div class="stepper-label">Post-concesión</div></div>
+                                            <div class="stepper-connector"></div>
+                                            <div class="stepper-step"><div class="stepper-icon">⚠️</div><div class="stepper-label">Advertencias</div></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Sin guía todavía -->
+                                <div th:if="${rec.guia == null or #strings.isEmpty(rec.guia)}" class="alert alert-info">
+                                    Esta recomendación no tiene guía generada todavía.<br>
+                                    Pulsa <strong>🤖 Analizar con IA</strong> para regenerar las recomendaciones con guía incluida.
+                                </div>
+
+                                <!-- ── TIMELINE VERTICAL CON PASOS DE IA ── -->
+                                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                     th:with="pasos=${#strings.arraySplit(rec.guia, '|')}"
+                                     class="guia-timeline">
+
+                                    <!--/*
+                                      Mapeo fijo: paso 1→Requisitos legales, 2→Documentación, 3→Sede electrónica,
+                                      4→Plazos, 5→Régimen concesión, 6→Post-concesión, 7→Justificación, 8→Advertencias
+                                    */-->
+                                    <div th:each="paso, iterStat : ${pasos}"
+                                         th:if="${!#strings.isEmpty(#strings.trim(paso))}"
+                                         class="guia-paso"
+                                         th:attr="data-step=${iterStat.index + 1}">
+
+                                        <!-- Icono del paso -->
+                                        <div class="guia-paso-icon">
+                                            <span th:switch="${iterStat.index}">
+                                                <span th:case="0">📄</span>
+                                                <span th:case="1">📎</span>
+                                                <span th:case="2">💻</span>
+                                                <span th:case="3">📅</span>
+                                                <span th:case="4">⚖️</span>
+                                                <span th:case="5">✅</span>
+                                                <span th:case="6">🧾</span>
+                                                <span th:case="7">⚠️</span>
+                                                <span th:case="*">📌</span>
+                                            </span>
+                                        </div>
+
+                                        <!-- Contenido del paso -->
+                                        <div class="guia-paso-content">
+                                            <div class="guia-paso-label">
+                                                <span th:switch="${iterStat.index}">
+                                                    <span th:case="0">Paso 1 — Requisitos legales</span>
+                                                    <span th:case="1">Paso 2 — Documentación obligatoria</span>
+                                                    <span th:case="2">Paso 3 — Acceso y presentación</span>
+                                                    <span th:case="3">Paso 4 — Plazos y calendario</span>
+                                                    <span th:case="4">Paso 5 — Régimen de concesión</span>
+                                                    <span th:case="5">Paso 6 — Tras la concesión</span>
+                                                    <span th:case="6">Paso 7 — Justificación</span>
+                                                    <span th:case="7">Paso 8 — Advertencias críticas</span>
+                                                    <span th:case="*" th:text="'Paso ' + (${iterStat.index + 1})"></span>
+                                                </span>
+                                            </div>
+                                            <div class="guia-paso-text" th:text="${#strings.trim(paso)}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Aviso legal -->
+                                <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                     class="alert alert-warning small mt-4 mb-0">
+                                    ⚠️ Esta guía es orientativa y fue generada por IA basándose en la Ley 38/2003 General de Subvenciones.
+                                    Verifica siempre los requisitos oficiales en las <strong>bases reguladoras</strong> de la convocatoria
+                                    antes de presentar tu solicitud.
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <a th:if="${rec.urlOficial}" th:href="${rec.urlOficial}"
+                                   target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+                                    Ir a la convocatoria oficial ↗
+                                </a>
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /modal -->
+            </div>
+        </div>
+        </div><!-- /vigentes section -->
+
+        <!-- ══ SEPARADOR ROADMAP: CONVOCATORIAS NO VIGENTES ══ -->
+        <div th:if="${!#lists.isEmpty(recomendacionesNoVigentes)}" class="mt-4">
+            <div class="card border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #f8f9fa, #e9ecef);">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary fs-6">📅 No vigentes</span>
+                            <span class="text-muted small" th:text="${#lists.size(recomendacionesNoVigentes)} + ' convocatorias con plazo cerrado'"></span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#noVigentesCollapse"
+                                aria-expanded="false" aria-controls="noVigentesCollapse">
+                            Mostrar / Ocultar
+                        </button>
+                    </div>
+                    <div class="small text-muted mt-1">
+                        Estas convocatorias ya no admiten solicitudes, pero pueden reabrirse o servir de referencia para futuras ediciones.
+                    </div>
+                </div>
+            </div>
+
+            <div class="collapse" id="noVigentesCollapse">
+                <div class="row g-3">
+                    <div class="col-12" th:each="rec : ${recomendacionesNoVigentes}">
+                        <div class="card shadow-sm border-start border-3 border-secondary" style="opacity: 0.75;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title mb-1 text-muted" th:text="${rec.titulo}"></h5>
+                                        <div class="mb-2">
+                                            <span class="badge bg-primary me-1" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
+                                            <span class="badge bg-secondary me-1" th:if="${rec.sector}" th:text="${rec.sector}"></span>
+                                            <span class="badge bg-info text-dark me-1" th:if="${rec.ubicacion}" th:text="${rec.ubicacion}"></span>
+                                            <span class="badge bg-light text-dark border" th:if="${rec.fuente}" th:text="${rec.fuente}"></span>
+                                            <span class="badge bg-danger">📅 No vigente</span>
+                                            <span th:if="${rec.usadaIa}" class="badge bg-success ms-1">🤖 IA</span>
+                                            <span th:unless="${rec.usadaIa}" class="badge bg-warning text-dark ms-1">🔎 Candidata</span>
+                                        </div>
+                                        <p class="text-muted small mb-2" th:text="${rec.explicacion}"></p>
+                                        <p class="small mb-0 text-danger fw-bold" th:if="${rec.fechaCierre}">
+                                            <strong>Cerrada:</strong>
+                                            <span th:text="${#temporals.format(rec.fechaCierre, 'dd/MM/yyyy')}"></span>
+                                        </p>
+                                    </div>
+                                    <!-- Puntuación -->
+                                    <div th:if="${rec.usadaIa}" class="text-center ms-3" style="min-width:80px;">
+                                        <div class="display-6 fw-bold text-muted" th:text="${rec.puntuacion}"></div>
+                                        <div class="small text-muted">/ 100</div>
+                                    </div>
+                                    <div th:unless="${rec.usadaIa}" class="text-center ms-3" style="min-width:80px;">
+                                        <div class="display-6 text-secondary">📅</div>
+                                        <div class="small text-muted">Cerrada</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3 d-flex flex-wrap gap-2">
+                                    <a th:if="${rec.urlOficial}" th:href="${rec.urlOficial}"
+                                       target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm">
+                                        Ver convocatoria ↗
+                                    </a>
+                                    <button th:if="${rec.usadaIa}" type="button" class="btn btn-outline-success btn-sm"
+                                            th:onclick="|abrirGuia('modalGuia${rec.id}')|">
+                                        📋 Ver guía
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal guía para no-vigentes evaluadas por IA -->
+                        <div th:if="${rec.usadaIa}" th:id="|modalGuia${rec.id}|" class="modal fade" tabindex="-1" role="dialog">
+                            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-secondary text-white">
+                                        <h5 class="modal-title">📋 Guía de solicitud (convocatoria no vigente)</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning mb-3">
+                                            ⚠️ Esta convocatoria ya no está vigente. La guía se conserva como referencia para futuras ediciones.
+                                        </div>
+                                        <div class="alert alert-light border mb-3">
+                                            <div class="small text-muted mb-1">Convocatoria</div>
+                                            <strong th:text="${rec.titulo}"></strong>
+                                        </div>
+                                        <div th:if="${rec.guia != null and !#strings.isEmpty(rec.guia)}"
+                                             th:with="pasos=${#strings.arraySplit(rec.guia, '|')}"
+                                             class="guia-timeline">
+                                            <div th:each="paso, iterStat : ${pasos}"
+                                                 th:if="${!#strings.isEmpty(#strings.trim(paso))}"
+                                                 class="guia-paso"
+                                                 th:attr="data-step=${iterStat.index + 1}">
+                                                <div class="guia-paso-icon">
+                                                    <span th:switch="${iterStat.index}">
+                                                        <span th:case="0">📄</span><span th:case="1">📎</span>
+                                                        <span th:case="2">💻</span><span th:case="3">📅</span>
+                                                        <span th:case="4">⚖️</span><span th:case="5">✅</span>
+                                                        <span th:case="6">🧾</span><span th:case="7">⚠️</span>
+                                                        <span th:case="*">📌</span>
+                                                    </span>
+                                                </div>
+                                                <div class="guia-paso-content">
+                                                    <div class="guia-paso-text" th:text="${#strings.trim(paso)}"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/javascript/recomendaciones-stream.js}"></script>
+<script>
+// ── Mapa GLOBAL de portales gubernamentales (compartido galería + lightbox) ──
+window.PORTALES_GOB = {
+    // Portales centrales
+    'sede.agenciatributaria.gob.es': {
+        name: 'Agencia Tributaria', short: 'AEAT', color: '#004A8F', icon: '🏛️',
+        headerBg: '#004A8F', headerText: 'Sede Electrónica — Agencia Tributaria',
+        nav: ['Inicio', 'Procedimientos', 'Certificados', 'Mis expedientes'],
+        cta: 'Obtener certificado', ctaIcon: '📄',
+        breadcrumb: 'Inicio > Certificados > Estar al corriente',
+        fields: ['NIF/CIF del solicitante', 'Tipo de certificado']
+    },
+    'sede.seg-social.gob.es': {
+        name: 'Seguridad Social', short: 'TGSS', color: '#C50000', icon: '🛡️',
+        headerBg: '#8B0000', headerText: 'Sede Electrónica — Seguridad Social',
+        nav: ['Ciudadanos', 'Empresas', 'Certificados', 'Informes'],
+        cta: 'Informe de cotización', ctaIcon: '🛡️',
+        breadcrumb: 'Inicio > Certificados > Vida laboral',
+        fields: ['Nº Seguridad Social', 'Tipo de informe']
+    },
+    'clave.gob.es': {
+        name: 'Cl@ve — Identidad electrónica', short: 'Cl@ve', color: '#00539B', icon: '🔑',
+        headerBg: '#003D73', headerText: 'Cl@ve — Sistema de identidad electrónica',
+        nav: ['Registro', 'Cl@ve PIN', 'Cl@ve Permanente', 'Ayuda'],
+        cta: 'Registrarse', ctaIcon: '🔑',
+        breadcrumb: 'Inicio > Registro > Tipo de registro',
+        fields: ['DNI/NIE', 'Fecha de validez']
+    },
+    'sede.fnmt.gob.es': {
+        name: 'FNMT — Certificado digital', short: 'FNMT', color: '#1B5E20', icon: '📜',
+        headerBg: '#1B5E20', headerText: 'FNMT — Certificado de Persona Física',
+        nav: ['Solicitar', 'Renovar', 'Revocar', 'Descargar'],
+        cta: 'Solicitar certificado', ctaIcon: '📜',
+        breadcrumb: 'Certificados > Persona Física > Solicitar',
+        fields: ['NIF del titular', 'Correo electrónico']
+    },
+    'www.sede.fnmt.gob.es': {
+        name: 'FNMT — Certificado digital', short: 'FNMT', color: '#1B5E20', icon: '📜',
+        headerBg: '#1B5E20', headerText: 'FNMT — Certificado de Persona Física',
+        nav: ['Solicitar', 'Renovar', 'Revocar', 'Descargar'],
+        cta: 'Solicitar certificado', ctaIcon: '📜',
+        breadcrumb: 'Certificados > Persona Física > Solicitar',
+        fields: ['NIF del titular', 'Correo electrónico']
+    },
+    'firmaelectronica.gob.es': {
+        name: 'AutoFirma', short: 'AutoFirma', color: '#2E7D32', icon: '✍️',
+        headerBg: '#2E7D32', headerText: 'AutoFirma — Firma electrónica',
+        nav: ['Descargar', 'Requisitos', 'Manuales', 'Soporte'],
+        cta: 'Descargar AutoFirma', ctaIcon: '⬇️',
+        breadcrumb: 'Inicio > Descargas > Sistema operativo',
+        fields: []
+    },
+    'rec.redsara.es': {
+        name: 'Registro Electrónico', short: 'REG', color: '#5C6BC0', icon: '📋',
+        headerBg: '#3949AB', headerText: 'Registro Electrónico — Administración General',
+        nav: ['Nuevo registro', 'Consultar', 'Mis registros', 'Ayuda'],
+        cta: 'Nuevo registro', ctaIcon: '📤',
+        breadcrumb: 'Registro > Nuevo > Seleccionar organismo',
+        fields: ['Organismo destino', 'Asunto', 'Adjuntar documentación']
+    },
+    'www.infosubvenciones.es': {
+        name: 'Portal BDNS', short: 'BDNS', color: '#00695C', icon: '💰',
+        headerBg: '#00695C', headerText: 'BDNS — Base de Datos Nacional de Subvenciones',
+        nav: ['Buscar', 'Convocatorias', 'Concesiones', 'Estadísticas'],
+        cta: 'Ver convocatoria', ctaIcon: '🔎',
+        breadcrumb: 'Convocatorias > Búsqueda > Ficha detalle',
+        fields: ['Texto libre', 'Órgano convocante']
+    },
+    'sede.administracion.gob.es': {
+        name: 'Punto de Acceso General', short: 'PAG', color: '#1A237E', icon: '🏛️',
+        headerBg: '#1A237E', headerText: 'Punto de Acceso General — Administración',
+        nav: ['Trámites', 'Sedes electrónicas', 'Registros', 'Ayuda'],
+        cta: 'Buscar trámite', ctaIcon: '🔎',
+        breadcrumb: 'Inicio > Trámites > Buscar por organismo',
+        fields: ['Organismo', 'Tipo de trámite']
+    },
+    // Sedes autonómicas
+    'sede.juntadeandalucia.es': { name: 'Junta de Andalucía', short: 'J.Andalucía', color: '#006633', icon: '🏛️', headerBg: '#006633', headerText: 'Sede Electrónica — Junta de Andalucía', nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Subvenciones', fields: ['NIF solicitante', 'Código trámite'] },
+    'sede.gva.es': { name: 'Generalitat Valenciana', short: 'GVA', color: '#C8102E', icon: '🏛️', headerBg: '#C8102E', headerText: 'Sede Electrónica — Generalitat Valenciana', nav: ['Trámites', 'Servicios', 'Cita previa', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Solicitud', fields: ['NIF/NIE', 'Procedimiento'] },
+    'web.gencat.cat': { name: 'Generalitat de Catalunya', short: 'Gencat', color: '#9B1D20', icon: '🏛️', headerBg: '#9B1D20', headerText: 'Tràmits — Generalitat de Catalunya', nav: ['Tràmits', 'Subvencions', 'Consultes', 'Ajuda'], cta: 'Iniciar tràmit', ctaIcon: '📋', breadcrumb: 'Inici > Tràmits > Sol·licitud', fields: ['NIF sol·licitant', 'Codi tràmit'] },
+    'sede.xunta.gal': { name: 'Xunta de Galicia', short: 'Xunta', color: '#003DA5', icon: '🏛️', headerBg: '#003DA5', headerText: 'Sede Electrónica — Xunta de Galicia', nav: ['Procedementos', 'Servizos', 'Consultas', 'Axuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Procedementos > Subvenciones', fields: ['NIF solicitante', 'Código procedemento'] },
+    'sede.euskadi.eus': { name: 'Gobierno Vasco', short: 'G.Vasco', color: '#CC0000', icon: '🏛️', headerBg: '#CC0000', headerText: 'Sede Electrónica — Gobierno Vasco', nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Subvenciones', fields: ['NIF/CIF', 'Línea de ayuda'] },
+    'sede.comunidad.madrid': { name: 'Comunidad de Madrid', short: 'C.Madrid', color: '#C4122F', icon: '🏛️', headerBg: '#C4122F', headerText: 'Sede Electrónica — Comunidad de Madrid', nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'], cta: 'Iniciar trámite', ctaIcon: '📋', breadcrumb: 'Inicio > Trámites > Subvenciones', fields: ['NIF solicitante', 'Código expediente'] }
+};
+
+/** Detecta portal conocido o genera uno genérico por patrón de hostname */
+window.detectarPortalGob = function(url) {
+    if (!url) return null;
+    try {
+        var hostname = new URL(url).hostname;
+        var p = window.PORTALES_GOB[hostname] || window.PORTALES_GOB[hostname.replace('www.', '')];
+        if (p) return p;
+        // Match parcial: cualquier sede gubernamental no mapeada
+        if (hostname.match(/sede\..+\.gob\.es/) || hostname.match(/sede\..+\.es/) || hostname.match(/\.gob\.es/)) {
+            var parts = hostname.replace('sede.', '').replace('www.', '').replace('.gob.es', '').replace('.es', '');
+            var orgName = parts.charAt(0).toUpperCase() + parts.slice(1).replace(/\./g, ' ');
+            return {
+                name: 'Sede — ' + orgName, short: orgName.substring(0, 12), color: '#37474F', icon: '🏛️',
+                headerBg: '#37474F', headerText: 'Sede Electrónica — ' + orgName,
+                nav: ['Trámites', 'Servicios', 'Consultas', 'Ayuda'],
+                cta: 'Iniciar trámite', ctaIcon: '📋',
+                breadcrumb: 'Inicio > Trámites > Solicitud',
+                fields: ['NIF/CIF', 'Código trámite']
+            };
+        }
+        return null;
+    } catch(e) { return null; }
+};
+
+/* Mapeo de pasos para la guía visual */
+var GUIA_PASOS_META = [
+    { icon: '📄', label: 'Requisitos legales',        color: '#dc3545' },
+    { icon: '📎', label: 'Documentación obligatoria', color: '#fd7e14' },
+    { icon: '💻', label: 'Acceso y presentación',     color: '#0d6efd' },
+    { icon: '📅', label: 'Plazos y calendario',       color: '#6f42c1' },
+    { icon: '⚖️', label: 'Régimen de concesión',     color: '#20c997' },
+    { icon: '✅', label: 'Tras la concesión',         color: '#0dcaf0' },
+    { icon: '🧾', label: 'Justificación',             color: '#198754' },
+    { icon: '⚠️', label: 'Advertencias críticas',    color: '#ffc107' }
+];
+
+/* Iconos para fases del workflow enriquecido */
+var WORKFLOW_PHASE_ICONS = {
+    preparation: '📋', application: '💻', submission: '📤', tracking: '🔍'
+};
+var WORKFLOW_PHASE_COLORS = {
+    preparation: '#dc3545', application: '#0d6efd', submission: '#198754', tracking: '#6f42c1'
+};
+
+function abrirGuia(modalId) {
+    var el = document.getElementById(modalId);
+    if (!el) { console.error('Modal no encontrado:', modalId); return; }
+    var modal = new bootstrap.Modal(el);
+    modal.show();
+}
+
+/**
+ * Solicita la guía enriquecida al servidor (genera bajo demanda si no existe).
+ * Muestra un modal de galería visual interactiva con workflows, documentos y requisitos.
+ */
+function solicitarGuiaEnriquecida(btn) {
+    var proyectoId = btn.getAttribute('data-proyecto-id');
+    var recId = btn.getAttribute('data-rec-id');
+    if (!proyectoId || !recId) return;
+
+    // Deshabilitar botón y mostrar spinner
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+
+    fetch('/usuario/proyectos/' + proyectoId + '/recomendaciones/' + recId + '/guia-enriquecida')
+        .then(function(resp) {
+            if (!resp.ok) throw new Error('Error ' + resp.status);
+            return resp.json();
+        })
+        .then(function(guia) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            mostrarGuiaEnriquecida(guia);
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert('No se pudo generar la guía enriquecida: ' + err.message);
+        });
+}
+
+/**
+ * Muestra la guía enriquecida en un modal de galería visual interactiva.
+ */
+function mostrarGuiaEnriquecida(guia) {
+    var prev = document.getElementById('modalGuiaEnriquecida');
+    if (prev) prev.remove();
+
+    var html = '';
+
+    // ── Resumen de la convocatoria ──
+    if (guia.grant_summary) {
+        var gs = guia.grant_summary;
+        html += '<div class="card border-0 shadow-sm mb-4">';
+        html += '<div class="card-header bg-primary text-white"><h6 class="mb-0">📌 Resumen de la convocatoria</h6></div>';
+        html += '<div class="card-body">';
+        if (gs.title) html += '<h6 class="fw-bold">' + esc(gs.title) + '</h6>';
+        if (gs.organism) html += '<p class="mb-1"><strong>Organismo:</strong> ' + esc(gs.organism) + '</p>';
+        if (gs.objective) html += '<p class="mb-1"><strong>Objetivo:</strong> ' + esc(gs.objective) + '</p>';
+        if (gs.who_can_apply) html += '<p class="mb-1"><strong>¿Quién puede solicitar?</strong> ' + esc(gs.who_can_apply) + '</p>';
+        if (gs.deadline) html += '<p class="mb-1"><strong>Plazo:</strong> <span class="badge bg-danger">' + esc(gs.deadline) + '</span></p>';
+        if (gs.legal_basis) html += '<p class="mb-1"><strong>Bases reguladoras:</strong> ' + esc(gs.legal_basis) + '</p>';
+        if (gs.official_link) html += '<a href="' + esc(gs.official_link) + '" target="_blank" class="btn btn-outline-primary btn-sm mt-2">Sede electrónica ↗</a>';
+        html += '</div></div>';
+    }
+
+    // ── Métodos de solicitud ──
+    if (guia.application_methods && guia.application_methods.length > 0) {
+        html += '<div class="card border-0 shadow-sm mb-4">';
+        html += '<div class="card-header bg-info text-white"><h6 class="mb-0">🔗 Métodos de solicitud</h6></div>';
+        html += '<div class="card-body"><div class="row g-2">';
+        guia.application_methods.forEach(function(m) {
+            var icon = m.method === 'online' ? '💻' : (m.method === 'presencial' ? '🏢' : '👤');
+            html += '<div class="col-md-4"><div class="border rounded p-3 text-center h-100">';
+            html += '<div class="fs-2 mb-1">' + icon + '</div>';
+            html += '<div class="fw-bold text-capitalize">' + esc(m.method) + '</div>';
+            html += '<div class="small text-muted">' + esc(m.description || '') + '</div>';
+            if (m.official_portal) html += '<a href="' + esc(m.official_portal) + '" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Acceder ↗</a>';
+            html += '</div></div>';
+        });
+        html += '</div></div></div>';
+    }
+
+    // ── Requisitos universales LGS art. 13 ──
+    if (guia.universal_requirements_lgs_art13 && guia.universal_requirements_lgs_art13.length > 0) {
+        html += '<div class="card border-0 shadow-sm mb-4 border-start border-3 border-danger">';
+        html += '<div class="card-header bg-light"><h6 class="mb-0 text-danger">⚖️ Requisitos universales (LGS art. 13)</h6></div>';
+        html += '<div class="card-body"><ul class="mb-0">';
+        guia.universal_requirements_lgs_art13.forEach(function(r) {
+            html += '<li class="mb-1">' + esc(r) + '</li>';
+        });
+        html += '</ul></div></div>';
+    }
+
+    // ── Documentos requeridos ──
+    if (guia.required_documents && guia.required_documents.length > 0) {
+        html += '<div class="card border-0 shadow-sm mb-4 border-start border-3 border-warning">';
+        html += '<div class="card-header bg-light"><h6 class="mb-0 text-warning">📎 Documentación requerida</h6></div>';
+        html += '<div class="card-body"><div class="row g-2">';
+        guia.required_documents.forEach(function(doc, i) {
+            html += '<div class="col-md-6"><div class="d-flex align-items-start gap-2">';
+            html += '<span class="badge bg-warning text-dark mt-1">' + (i+1) + '</span>';
+            html += '<span class="small">' + esc(doc) + '</span>';
+            html += '</div></div>';
+        });
+        html += '</div></div></div>';
+    }
+
+    // ── Workflows ──
+    if (guia.workflows && guia.workflows.length > 0) {
+        html += '<h6 class="fw-bold mt-4 mb-3">🗺️ Flujos de solicitud paso a paso</h6>';
+
+        // Tabs para métodos
+        var tabId = 'guiaEnriquecidaTabs';
+        html += '<ul class="nav nav-tabs mb-3" id="' + tabId + '" role="tablist">';
+        guia.workflows.forEach(function(wf, wi) {
+            var active = wi === 0 ? ' active' : '';
+            var icon = wf.method === 'online' ? '💻' : (wf.method === 'presencial' ? '🏢' : '👤');
+            html += '<li class="nav-item" role="presentation">';
+            html += '<button class="nav-link' + active + '" id="wf-tab-' + wi + '" data-bs-toggle="tab" data-bs-target="#wf-pane-' + wi + '" type="button" role="tab">';
+            html += icon + ' ' + esc(wf.method);
+            html += '</button></li>';
+        });
+        html += '</ul>';
+
+        html += '<div class="tab-content">';
+        guia.workflows.forEach(function(wf, wi) {
+            var active = wi === 0 ? ' show active' : '';
+            html += '<div class="tab-pane fade' + active + '" id="wf-pane-' + wi + '" role="tabpanel">';
+
+            if (wf.steps && wf.steps.length > 0) {
+                // Stepper horizontal
+                html += '<div class="stepper-flow mb-3" role="list">';
+                wf.steps.forEach(function(step, si) {
+                    var phaseIcon = WORKFLOW_PHASE_ICONS[step.phase] || '📌';
+                    var cls = si === 0 ? 'active' : '';
+                    html += '<div class="stepper-step ' + cls + '">';
+                    html += '<div class="stepper-icon">' + phaseIcon + '</div>';
+                    html += '<div class="stepper-label">' + esc(step.title || 'Paso ' + step.step) + '</div>';
+                    html += '</div>';
+                    if (si < wf.steps.length - 1) {
+                        html += '<div class="stepper-connector ' + (si === 0 ? 'active' : '') + '"></div>';
+                    }
+                });
+                html += '</div>';
+
+                // Timeline vertical detallado
+                html += '<div class="guia-timeline">';
+                wf.steps.forEach(function(step, si) {
+                    var phaseColor = WORKFLOW_PHASE_COLORS[step.phase] || '#6c757d';
+                    html += '<div class="guia-paso" data-step="' + (si+1) + '" style="animation-delay:' + (si*0.05) + 's">';
+                    html += '<div class="guia-paso-icon" style="border-color:' + phaseColor + '">' + (WORKFLOW_PHASE_ICONS[step.phase] || '📌') + '</div>';
+                    html += '<div class="guia-paso-content" style="border-left-color:' + phaseColor + '">';
+                    html += '<div class="guia-paso-label" style="color:' + phaseColor + '">Paso ' + step.step + ' — ' + esc(step.title || '') + '</div>';
+                    html += '<div class="guia-paso-text">' + esc(step.description || '') + '</div>';
+                    if (step.user_action) html += '<div class="small mt-1"><strong>🧑 Acción:</strong> ' + esc(step.user_action) + '</div>';
+                    if (step.portal_action) html += '<div class="small"><strong>🖥️ Portal:</strong> ' + esc(step.portal_action) + '</div>';
+                    if (step.required_documents && step.required_documents.length > 0) {
+                        html += '<div class="small mt-1"><strong>📄 Docs:</strong> ' + step.required_documents.map(esc).join(', ') + '</div>';
+                    }
+                    if (step.estimated_time_minutes > 0) {
+                        html += '<div class="small text-muted mt-1">⏱️ ~' + step.estimated_time_minutes + ' min</div>';
+                    }
+                    if (step.official_link) {
+                        html += '<a href="' + esc(step.official_link) + '" target="_blank" class="btn btn-outline-primary btn-sm mt-2">Acceder ↗</a>';
+                    }
+                    html += '</div></div>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // ── Galería visual de portales (generada desde el workflow real) ──
+    var wfPrincipal = (guia.workflows && guia.workflows.length > 0) ? guia.workflows[0] : null;
+    // Enriquecer con visual_guides si existen (screen_hint + image_prompt)
+    var vgSteps = (guia.visual_guides && guia.visual_guides.length > 0 && guia.visual_guides[0].steps) ? guia.visual_guides[0].steps : [];
+
+    if (wfPrincipal && wfPrincipal.steps && wfPrincipal.steps.length > 0) {
+        var phaseEmoji = { preparation: '📋', application: '💻', submission: '📤', tracking: '🔍' };
+        var phaseColors = { preparation: '#dc3545', application: '#0d6efd', submission: '#198754', tracking: '#6f42c1' };
+        var phaseNames = { preparation: 'Preparación', application: 'Solicitud', submission: 'Envío', tracking: 'Seguimiento' };
+
+        html += '<h6 class="fw-bold mt-4 mb-3">🖼️ Recorrido visual paso a paso</h6>';
+        html += '<p class="small text-muted mb-3">Cada tarjeta simula la pantalla real que verás. El indicador <span style="color:#dc3545;font-weight:700;">👆</span> marca dónde hacer clic.</p>';
+
+        window._wfSteps = wfPrincipal.steps;
+        window._vgSteps = vgSteps;
+
+        var methodIcon = wfPrincipal.method === 'online' ? '💻' : (wfPrincipal.method === 'presencial' ? '🏢' : '👤');
+        html += '<div class="mb-3"><span class="badge bg-secondary mb-2">' + methodIcon + ' Tramitación ' + esc(wfPrincipal.method || 'online') + '</span>';
+        html += '<div class="row g-3">';
+
+        wfPrincipal.steps.forEach(function(step, si) {
+            var pColor = phaseColors[step.phase] || '#6c757d';
+            var pEmoji = phaseEmoji[step.phase] || '📌';
+            var pName = phaseNames[step.phase] || step.phase || '';
+            var realUrl = step.official_link || '';
+            // Enriquecer con visual_guides si el step coincide
+            var vg = vgSteps[si] || {};
+            if (!realUrl && vg.screen_hint && vg.screen_hint.startsWith('http')) realUrl = vg.screen_hint;
+            if (!realUrl && vg.official_link) realUrl = vg.official_link;
+            var portal = window.detectarPortalGob(realUrl);
+            var portalColor = portal ? portal.color : pColor;
+            var portalName = portal ? portal.name : (step.title || 'Portal oficial');
+            var portalShort = portal ? portal.short : '';
+            var portalIcon = portal ? portal.icon : pEmoji;
+            var displayUrl = '';
+            try { displayUrl = new URL(realUrl).hostname + new URL(realUrl).pathname; } catch(e) {}
+            // Hint: priorizar user_action de la IA, fallback a portal genérico
+            var hintText = step.user_action || (vg.image_prompt) || '';
+
+            html += '<div class="col-md-6 col-lg-4">';
+            html += '<div class="portal-card" style="border-color:' + portalColor + ';cursor:pointer;" onclick="abrirLightboxWF(' + si + ')">';
+            html += '<span class="portal-card-syntia-badge">SYNTIA · Paso ' + step.step + '</span>';
+            // Barra navegador
+            html += '<div class="portal-card-bar">';
+            html += '<span class="portal-card-dot r"></span><span class="portal-card-dot y"></span><span class="portal-card-dot g"></span>';
+            if (displayUrl) {
+                html += '<div class="portal-card-url">🔒 ' + esc(displayUrl) + '</div>';
+            } else {
+                html += '<div class="portal-card-url" style="color:#999;">📌 ' + esc(step.title || 'Paso ' + step.step) + '</div>';
+            }
+            html += '</div>';
+            // Header institucional
+            html += '<div class="portal-card-header" style="background:linear-gradient(135deg,' + portalColor + '11,' + portalColor + '08);">';
+            html += '<span style="font-size:1.4rem;line-height:1;">' + portalIcon + '</span>';
+            html += '<div>';
+            html += '<div class="portal-card-header-text" style="color:' + portalColor + ';">' + esc(portalName) + '</div>';
+            if (portalShort) html += '<div class="portal-card-header-sub">' + esc(portalShort) + '</div>';
+            html += '</div></div>';
+
+            // ── Preview: mockup realista o checklist ──
+            html += '<div class="portal-card-preview">';
+            if (portal && portal.headerBg) {
+                // MOCKUP REALISTA de portal reconocido
+                html += '<div class="mock-screen">';
+                html += '<div class="mock-header" style="background:' + portal.headerBg + ';"><span>' + portalIcon + '</span> ' + esc(portal.headerText) + '</div>';
+                // Nav con item activo detectado por user_action
+                html += '<div class="mock-nav">';
+                var uaLower = (step.user_action || '').toLowerCase();
+                (portal.nav || []).forEach(function(item) {
+                    var isActive = uaLower.indexOf(item.toLowerCase()) !== -1;
+                    html += '<div class="mock-nav-item' + (isActive ? ' active' : '') + '" style="' + (isActive ? 'color:' + portalColor + ';border-bottom-color:' + portalColor : '') + '">' + esc(item) + '</div>';
+                });
+                html += '</div>';
+                // Breadcrumb
+                if (portal.breadcrumb) html += '<div class="mock-breadcrumb">' + esc(portal.breadcrumb) + '</div>';
+                // Cuerpo con campos con labels
+                html += '<div class="mock-body">';
+                if (portal.fields && portal.fields.length > 0) {
+                    portal.fields.slice(0, 2).forEach(function(f) {
+                        html += '<div class="mock-body-row"><div class="mock-label">' + esc(f) + '</div><div class="mock-input"></div></div>';
+                    });
+                }
+                // CTA con indicador de clic
+                var ctaText = step.user_action ? esc(step.user_action).substring(0, 40) : esc(portal.cta);
+                html += '<div style="position:relative;display:inline-block;margin-top:3px;align-self:center;">';
+                html += '<div class="mock-btn" style="background:' + portalColor + ';">' + (portal.ctaIcon || '→') + ' ' + ctaText + '</div>';
+                html += '<div class="click-pulse" style="top:-6px;right:-8px;"></div>';
+                html += '</div>';
+                html += '</div>';
+                // Hint dinámico
+                if (hintText) html += '<div class="mock-hint">👆 ' + esc(hintText).substring(0, 80) + '</div>';
+                html += '</div>';
+            } else if (!realUrl || !realUrl.startsWith('http')) {
+                // CHECKLIST visual para pasos sin portal (preparación, firma, etc.)
+                html += '<div class="mock-checklist">';
+                html += '<div class="mock-checklist-title">' + pEmoji + ' ' + esc(step.title || 'Paso ' + step.step) + '</div>';
+                if (step.required_documents && step.required_documents.length > 0) {
+                    step.required_documents.slice(0, 4).forEach(function(doc) {
+                        html += '<div class="mock-checklist-item"><div class="mock-check">✓</div>' + esc(doc) + '</div>';
+                    });
+                } else if (step.description) {
+                    var parts = step.description.split(/[,;.]/).filter(function(s) { return s.trim().length > 3; }).slice(0, 4);
+                    parts.forEach(function(part) {
+                        html += '<div class="mock-checklist-item"><div class="mock-check">✓</div>' + esc(part.trim()).substring(0, 50) + '</div>';
+                    });
+                }
+                if (step.user_action) {
+                    html += '<div style="margin-top:auto;padding-top:4px;">';
+                    html += '<div style="font-size:0.42rem;color:#dc3545;font-weight:600;">👆 ' + esc(step.user_action).substring(0, 60) + '</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            } else {
+                // Portal genérico con URL pero no en el mapa
+                html += '<div class="mock-screen">';
+                html += '<div class="mock-header" style="background:' + portalColor + ';">' + portalIcon + ' ' + esc(step.title || 'Portal oficial') + '</div>';
+                html += '<div class="mock-nav"><div class="mock-nav-item active" style="color:' + portalColor + ';border-bottom-color:' + portalColor + ';">Trámite</div><div class="mock-nav-item">Documentación</div><div class="mock-nav-item">Ayuda</div></div>';
+                html += '<div class="mock-body">';
+                html += '<div class="mock-body-row"><div class="mock-label">NIF/CIF</div><div class="mock-input"></div></div>';
+                html += '<div class="mock-body-row"><div class="mock-label">Solicitud</div><div class="mock-input"></div></div>';
+                if (step.user_action) {
+                    html += '<div style="position:relative;display:inline-block;margin-top:3px;align-self:center;">';
+                    html += '<div class="mock-btn" style="background:' + portalColor + ';">→ ' + esc(step.user_action).substring(0, 35) + '</div>';
+                    html += '<div class="click-pulse" style="top:-6px;right:-8px;"></div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+                if (hintText) html += '<div class="mock-hint">👆 ' + esc(hintText).substring(0, 80) + '</div>';
+                html += '</div>';
+            }
+            html += '</div>';
+
+            // Footer
+            html += '<div class="portal-card-footer" style="border-top-color:' + portalColor + ';background:' + portalColor + '08;">';
+            html += '<span class="step-num" style="color:' + portalColor + ';">';
+            html += '<span class="badge rounded-pill" style="background:' + portalColor + ';color:#fff;font-size:0.6rem;margin-right:4px;">' + pName + '</span>';
+            if (step.estimated_time_minutes > 0) html += '<span style="font-size:0.55rem;color:#999;">⏱️ ~' + step.estimated_time_minutes + ' min</span>';
+            html += '</span>';
+            if (realUrl && realUrl.startsWith('http')) {
+                html += '<a href="' + esc(realUrl) + '" target="_blank" rel="noopener" class="step-action" onclick="event.stopPropagation();">Ir al portal ↗</a>';
+            }
+            html += '</div>';
+            html += '</div></div>';
+        });
+        html += '</div></div>';
+    }
+
+    // ── Disclaimer legal ──
+    if (guia.legal_disclaimer) {
+        html += '<div class="alert alert-warning small mt-4 mb-0">⚠️ ' + esc(guia.legal_disclaimer) + '</div>';
+    }
+
+    // Construir modal
+    var modalHtml = '<div id="modalGuiaEnriquecida" class="modal fade" tabindex="-1">' +
+        '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
+        '<div class="modal-header bg-success text-white">' +
+        '<h5 class="modal-title">🗺️ Guía visual completa de solicitud</h5>' +
+        '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>' +
+        '<div class="modal-body">' + html + '</div>' +
+        '<div class="modal-footer">' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button></div>' +
+        '</div></div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    var modalEl = document.getElementById('modalGuiaEnriquecida');
+    modalEl.addEventListener('hidden.bs.modal', function() {
+        // Limpiar arrays temporales de visual guides
+        for (var k in window) { if (k.indexOf('vgLb_') === 0) delete window[k]; }
+        modalEl.remove();
+    });
+    new bootstrap.Modal(modalEl).show();
+}
+
+function esc(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Abre un lightbox con el detalle ampliado de un paso del workflow.
+ * Lee de window._wfSteps para estar sincronizado con la galería y el workflow.
+ *
+ * @param {number} startIdx - índice del paso a mostrar
+ */
+function abrirLightboxWF(startIdx) {
+    var steps = window._wfSteps;
+    if (!steps || steps.length === 0) return;
+
+    var prev = document.getElementById('vgLightboxOverlay');
+    if (prev) prev.remove();
+
+    var currentIdx = startIdx || 0;
+    var phaseEmoji = { preparation: '📋', application: '💻', submission: '📤', tracking: '🔍' };
+    var phaseNames = { preparation: 'Preparación', application: 'Solicitud', submission: 'Envío', tracking: 'Seguimiento' };
+    var phaseColors = { preparation: '#dc3545', application: '#0d6efd', submission: '#198754', tracking: '#6f42c1' };
+
+    function renderStep(idx) {
+        var step = steps[idx];
+        var vg = (window._vgSteps || [])[idx] || {};
+        var pColor = phaseColors[step.phase] || '#6c757d';
+        var pEmoji = phaseEmoji[step.phase] || '📌';
+        var pName = phaseNames[step.phase] || step.phase || '';
+        var realUrl = step.official_link || vg.official_link || '';
+        if (!realUrl && vg.screen_hint && vg.screen_hint.startsWith('http')) realUrl = vg.screen_hint;
+        var displayUrl = '';
+        try { displayUrl = new URL(realUrl).hostname + new URL(realUrl).pathname; } catch(e) {}
+
+        var portal = window.detectarPortalGob(realUrl);
+        var portalColor = portal ? portal.color : pColor;
+        var portalName = portal ? portal.name : (step.title || 'Portal oficial');
+        var portalIcon = portal ? portal.icon : pEmoji;
+        var hintText = step.user_action || vg.image_prompt || '';
+
+        var h = '<div style="padding:1.5rem;">';
+
+        // Header con fase + badge Syntia
+        h += '<div class="d-flex align-items-center justify-content-between mb-3">';
+        h += '<div class="d-flex align-items-center gap-2">';
+        h += '<span class="badge rounded-pill" style="background:' + pColor + ';font-size:0.85rem;padding:6px 14px;">' + pEmoji + ' ' + esc(pName) + '</span>';
+        h += '<span class="text-muted small">Paso ' + step.step + ' de ' + steps.length + '</span>';
+        h += '</div>';
+        h += '<span class="badge" style="background:#198754;color:#fff;font-size:0.65rem;">SYNTIA</span>';
+        h += '</div>';
+
+        // Portal institucional header (si hay URL)
+        if (displayUrl) {
+            h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 12px;background:' + portalColor + '0D;border-radius:8px;border-left:4px solid ' + portalColor + ';">';
+            h += '<span style="font-size:1.5rem;line-height:1;">' + portalIcon + '</span>';
+            h += '<div>';
+            h += '<div style="font-weight:700;font-size:0.85rem;color:' + portalColor + ';">' + esc(portalName) + '</div>';
+            h += '<div style="font-size:0.65rem;color:#666;font-family:monospace;">🔒 ' + esc(displayUrl) + '</div>';
+            h += '</div></div>';
+        }
+
+        // Título y descripción
+        h += '<h5 style="color:#333;font-weight:700;margin-bottom:0.5rem;">' + esc(step.title || 'Paso ' + step.step) + '</h5>';
+        if (step.description) {
+            h += '<p style="color:#555;font-size:0.9rem;margin-bottom:1rem;">' + esc(step.description) + '</p>';
+        }
+
+        // ── Mockup grande de la interfaz del portal ──
+        h += '<div style="border:3px solid ' + portalColor + ';border-radius:10px;overflow:hidden;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.1);">';
+        // Barra del navegador
+        h += '<div style="background:linear-gradient(180deg,#f0f0f0,#e0e0e0);padding:6px 10px;display:flex;align-items:center;gap:5px;border-bottom:1px solid #ccc;">';
+        h += '<span class="portal-card-dot r"></span><span class="portal-card-dot y"></span><span class="portal-card-dot g"></span>';
+        h += '<div style="flex:1;background:#fff;border-radius:4px;padding:3px 10px;font-size:0.7rem;color:#0d6efd;margin-left:6px;font-family:monospace;">🔒 ' + esc(realUrl || step.title || 'portal-oficial.gob.es') + '</div>';
+        h += '</div>';
+        // Header institucional
+        var lbHeaderBg = portal ? portal.headerBg : portalColor;
+        var lbHeaderText = portal ? portal.headerText : (step.title || 'Portal oficial');
+        h += '<div style="background:' + lbHeaderBg + ';padding:8px 14px;color:#fff;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:8px;">';
+        h += '<span style="font-size:1.1rem;">' + portalIcon + '</span> ' + esc(lbHeaderText);
+        h += '</div>';
+        // Nav del portal
+        var lbNav = portal ? portal.nav : ['Trámite', 'Documentación', 'Consultas', 'Ayuda'];
+        var uaLower = (step.user_action || '').toLowerCase();
+        h += '<div style="display:flex;background:#f8f8f8;border-bottom:1px solid #ddd;">';
+        lbNav.forEach(function(navItem) {
+            var isActive = uaLower.indexOf(navItem.toLowerCase()) !== -1;
+            h += '<div style="padding:6px 12px;font-size:0.72rem;color:' + (isActive ? portalColor : '#555') + ';font-weight:' + (isActive ? '700' : '400') + ';border-bottom:' + (isActive ? '3px solid ' + portalColor : '3px solid transparent') + ';cursor:default;">' + esc(navItem) + '</div>';
+        });
+        h += '</div>';
+        // Breadcrumb
+        if (portal && portal.breadcrumb) {
+            h += '<div style="font-size:0.65rem;color:#888;padding:4px 14px;background:#fafafa;border-bottom:1px solid #f0f0f0;">' + esc(portal.breadcrumb) + '</div>';
+        }
+        // Cuerpo del mockup con campos con labels
+        h += '<div style="padding:16px 20px;background:#fff;min-height:100px;display:flex;flex-direction:column;gap:8px;">';
+        var lbFields = (portal && portal.fields) ? portal.fields : ['Identificación', 'Datos del trámite'];
+        lbFields.slice(0, 3).forEach(function(f) {
+            h += '<div style="display:flex;align-items:center;gap:8px;">';
+            h += '<div style="font-size:0.7rem;color:#555;font-weight:600;min-width:35%;text-align:right;">' + esc(f) + '</div>';
+            h += '<div style="flex:1;height:22px;background:#f8f8f8;border:1px solid #ddd;border-radius:4px;"></div>';
+            h += '</div>';
+        });
+        // CTA principal con indicador de clic
+        var lbCta = step.user_action ? esc(step.user_action).substring(0, 50) : (portal ? esc(portal.cta) : esc(step.title || 'Continuar'));
+        var lbCtaIcon = (portal && portal.ctaIcon) ? portal.ctaIcon : '→';
+        h += '<div style="text-align:center;margin-top:6px;position:relative;display:inline-block;align-self:center;">';
+        h += '<div style="padding:8px 22px;border-radius:6px;background:' + portalColor + ';color:#fff;font-size:0.85rem;font-weight:700;box-shadow:0 2px 6px ' + portalColor + '44;cursor:default;display:inline-block;">' + lbCtaIcon + ' ' + lbCta + '</div>';
+        h += '<div class="click-pulse" style="top:-8px;right:-10px;width:26px;height:26px;"></div>';
+        h += '</div>';
+        h += '</div>';
+        // Hint bar inferior
+        if (hintText) {
+            h += '<div style="background:rgba(220,53,69,0.92);color:#fff;font-size:0.72rem;font-weight:600;padding:6px 12px;text-align:center;">👆 ' + esc(hintText) + '</div>';
+        }
+        h += '</div>';
+
+        // Acciones del usuario y del portal
+        if (step.user_action || step.portal_action) {
+            h += '<div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:1rem;">';
+            if (step.user_action) {
+                h += '<div style="margin-bottom:6px;"><strong style="color:#0d6efd;">🧑 Tú debes:</strong> <span style="font-size:0.88rem;">' + esc(step.user_action) + '</span></div>';
+            }
+            if (step.portal_action) {
+                h += '<div><strong style="color:#198754;">🖥️ El portal:</strong> <span style="font-size:0.88rem;">' + esc(step.portal_action) + '</span></div>';
+            }
+            h += '</div>';
+        }
+
+        // Documentos necesarios en este paso
+        if (step.required_documents && step.required_documents.length > 0) {
+            h += '<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px;margin-bottom:1rem;">';
+            h += '<div style="font-weight:600;font-size:0.8rem;color:#856404;margin-bottom:4px;">📎 Documentos necesarios:</div>';
+            h += '<ul style="margin:0;padding-left:1.2rem;font-size:0.82rem;">';
+            step.required_documents.forEach(function(doc) { h += '<li>' + esc(doc) + '</li>'; });
+            h += '</ul></div>';
+        }
+
+        // Tiempo estimado
+        if (step.estimated_time_minutes > 0) {
+            h += '<div style="font-size:0.8rem;color:#666;margin-bottom:1rem;">⏱️ Tiempo estimado: ~' + step.estimated_time_minutes + ' minutos</div>';
+        }
+
+        // Botón para ir al portal real
+        if (realUrl && realUrl.startsWith('http')) {
+            h += '<div style="text-align:center;">';
+            h += '<a href="' + esc(realUrl) + '" target="_blank" rel="noopener" class="btn btn-sm" style="background:' + portalColor + ';color:#fff;font-weight:600;padding:8px 24px;">' + portalIcon + ' Ir a ' + esc(portalName) + ' ↗</a>';
+            h += '</div>';
+        }
+
+        h += '</div>';
+        return h;
+    }
+
+    // Crear overlay
+    var overlay = document.createElement('div');
+    overlay.id = 'vgLightboxOverlay';
+    overlay.className = 'vg-lightbox-overlay active';
+
+    var wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.maxWidth = '680px';
+    wrapper.style.width = '100%';
+
+    var content = document.createElement('div');
+    content.className = 'vg-lightbox-content';
+    content.innerHTML = renderStep(currentIdx);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'vg-lightbox-close';
+    closeBtn.innerHTML = '✕';
+    closeBtn.onclick = function() { overlay.remove(); };
+
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'vg-lightbox-nav prev';
+    prevBtn.innerHTML = '‹';
+    prevBtn.style.display = currentIdx > 0 ? 'block' : 'none';
+    prevBtn.onclick = function(e) {
+        e.stopPropagation();
+        if (currentIdx > 0) {
+            currentIdx--;
+            content.innerHTML = renderStep(currentIdx);
+            content.prepend(closeBtn);
+            prevBtn.style.display = currentIdx > 0 ? 'block' : 'none';
+            nextBtn.style.display = currentIdx < steps.length - 1 ? 'block' : 'none';
+            counter.textContent = (currentIdx + 1) + ' / ' + steps.length;
+        }
+    };
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'vg-lightbox-nav next';
+    nextBtn.innerHTML = '›';
+    nextBtn.style.display = currentIdx < steps.length - 1 ? 'block' : 'none';
+    nextBtn.onclick = function(e) {
+        e.stopPropagation();
+        if (currentIdx < steps.length - 1) {
+            currentIdx++;
+            content.innerHTML = renderStep(currentIdx);
+            content.prepend(closeBtn);
+            prevBtn.style.display = currentIdx > 0 ? 'block' : 'none';
+            nextBtn.style.display = currentIdx < steps.length - 1 ? 'block' : 'none';
+            counter.textContent = (currentIdx + 1) + ' / ' + steps.length;
+        }
+    };
+
+    var counter = document.createElement('div');
+    counter.className = 'vg-lightbox-counter';
+    counter.textContent = (currentIdx + 1) + ' / ' + steps.length;
+
+    content.prepend(closeBtn);
+    content.appendChild(counter);
+    wrapper.appendChild(prevBtn);
+    wrapper.appendChild(content);
+    wrapper.appendChild(nextBtn);
+    overlay.appendChild(wrapper);
+
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+    function onKey(e) {
+        if (!document.getElementById('vgLightboxOverlay')) { document.removeEventListener('keydown', onKey); return; }
+        if (e.key === 'Escape') overlay.remove();
+        if (e.key === 'ArrowLeft') prevBtn.click();
+        if (e.key === 'ArrowRight') nextBtn.click();
+    }
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
+}
+
+/**
+ * Abre un modal dinámico con la guía de solicitud (para tarjetas SSE streaming).
+ * @param {object} rec - Objeto de recomendación con campos titulo, tipo, sector, guia, urlOficial
+ */
+function abrirGuiaStream(rec) {
+    // Eliminar modal anterior si existe
+    var prev = document.getElementById('modalGuiaStream');
+    if (prev) prev.remove();
+
+    var pasos = (rec.guia || '').split('|').map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+
+    // ── Stepper horizontal ──
+    var stepperHtml = '<div class="card border-0 bg-white shadow-sm mb-4"><div class="card-body py-3">' +
+        '<div class="small text-muted text-center mb-2 fw-semibold">📍 Flujo del proceso de solicitud</div>' +
+        '<div class="stepper-flow" role="list">';
+    var stepperIcons = ['🏛️','📄','📎','💻','📅','⚖️','✅','⚠️'];
+    var stepperLabels = ['Portal convocatoria','Requisitos legales','Documentación','Sede electrónica','Plazos','Régimen concesión','Post-concesión','Advertencias'];
+    for (var si = 0; si < stepperIcons.length; si++) {
+        var cls = si < 2 ? 'completed' : (si === 2 ? 'active' : '');
+        stepperHtml += '<div class="stepper-step ' + cls + '"><div class="stepper-icon">' + stepperIcons[si] + '</div><div class="stepper-label">' + stepperLabels[si] + '</div></div>';
+        if (si < stepperIcons.length - 1) {
+            var connCls = si < 2 ? 'completed' : (si === 2 ? 'active' : '');
+            stepperHtml += '<div class="stepper-connector ' + connCls + '"></div>';
+        }
+    }
+    stepperHtml += '</div></div></div>';
+
+    // ── Timeline vertical ──
+    var timelineHtml = '';
+    if (pasos.length > 0) {
+        timelineHtml = '<div class="guia-timeline">';
+        for (var i = 0; i < pasos.length; i++) {
+            var meta = GUIA_PASOS_META[i] || { icon: '📌', label: 'Paso ' + (i+1), color: '#6c757d' };
+            timelineHtml += '<div class="guia-paso" data-step="' + (i+1) + '">' +
+                '<div class="guia-paso-icon">' + meta.icon + '</div>' +
+                '<div class="guia-paso-content">' +
+                '<div class="guia-paso-label">' + meta.label + '</div>' +
+                '<div class="guia-paso-text">' + escapeHtmlGuia(pasos[i]) + '</div>' +
+                '</div></div>';
+        }
+        timelineHtml += '</div>';
+    } else {
+        timelineHtml = '<div class="alert alert-info">Esta recomendación no tiene guía generada todavía.</div>';
+    }
+
+    var tipo = rec.tipo ? '<span class="badge bg-primary me-1">' + escapeHtmlGuia(rec.tipo) + '</span>' : '';
+    var sector = rec.sector ? '<span class="badge bg-secondary">' + escapeHtmlGuia(rec.sector) + '</span>' : '';
+    var urlBtn = rec.urlOficial ? '<a href="' + escapeHtmlGuia(rec.urlOficial) + '" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">Ir a la convocatoria oficial ↗</a>' : '';
+
+    var modalHtml = '<div id="modalGuiaStream" class="modal fade" tabindex="-1">' +
+        '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
+        '<div class="modal-header bg-success text-white">' +
+        '<h5 class="modal-title">📋 Guía de solicitud — Flujo completo</h5>' +
+        '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>' +
+        '<div class="modal-body">' +
+        '<div class="alert alert-light border mb-3"><div class="small text-muted mb-1">Convocatoria</div>' +
+        '<strong>' + escapeHtmlGuia(rec.titulo || 'Sin título') + '</strong>' +
+        '<div class="mt-1">' + tipo + sector + '</div></div>' +
+        stepperHtml +
+        timelineHtml +
+        (pasos.length > 0 ? '<div class="alert alert-warning small mt-4 mb-0">⚠️ Esta guía es orientativa y fue generada por IA basándose en la Ley 38/2003 General de Subvenciones. Verifica siempre los requisitos oficiales en las <strong>bases reguladoras</strong> de la convocatoria.</div>' : '') +
+        '</div>' +
+        '<div class="modal-footer">' + urlBtn +
+        '<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button></div>' +
+        '</div></div></div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    var modalEl = document.getElementById('modalGuiaStream');
+    modalEl.addEventListener('hidden.bs.modal', function () { modalEl.remove(); });
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+function escapeHtmlGuia(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
+</body>
+</html>

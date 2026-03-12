@@ -1,0 +1,125 @@
+﻿<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${convocatoriaId != null} ? 'Syntia Admin – Editar Convocatoria' : 'Syntia Admin – Nueva Convocatoria'">
+        Syntia Admin – Convocatoria
+    </title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+</head>
+<body class="bg-light">
+
+<nav th:replace="~{fragments/navbar-admin :: navbar-admin}"></nav>
+
+<div class="container py-5" style="max-width: 720px;">
+
+    <h2 class="mb-1"
+        th:text="${convocatoriaId != null} ? 'Editar Convocatoria' : 'Nueva Convocatoria'">
+        Convocatoria
+    </h2>
+    <p class="text-muted mb-4 small">
+        <span th:if="${convocatoriaId == null}">Añade una nueva convocatoria al catálogo del motor de matching.</span>
+        <span th:if="${convocatoriaId != null}">Actualiza los datos de esta convocatoria.</span>
+    </p>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <form th:action="${convocatoriaId != null}
+                              ? @{/admin/convocatorias/{id}/editar(id=${convocatoriaId})}
+                              : @{/admin/convocatorias/nueva}"
+                  th:object="${convocatoriaDTO}"
+                  method="post" novalidate>
+
+                <!-- Título -->
+                <div class="mb-3">
+                    <label for="titulo" class="form-label fw-semibold">
+                        Título <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" id="titulo" th:field="*{titulo}"
+                           class="form-control"
+                           th:classappend="${#fields.hasErrors('titulo')} ? 'is-invalid'"
+                           placeholder="Ej: Ayudas para digitalización PYMES 2026"
+                           maxlength="300">
+                    <div class="invalid-feedback" th:errors="*{titulo}"></div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <!-- Tipo -->
+                    <div class="col-md-4">
+                        <label for="tipo" class="form-label fw-semibold">Tipo</label>
+                        <select id="tipo" th:field="*{tipo}" class="form-select">
+                            <option value="">-- Tipo --</option>
+                            <option value="Subvención">Subvención</option>
+                            <option value="Ayuda">Ayuda</option>
+                            <option value="Licitación">Licitación</option>
+                            <option value="Préstamo">Préstamo</option>
+                            <option value="Europeo">Europeo</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <!-- Sector -->
+                    <div class="col-md-4">
+                        <label for="sector" class="form-label fw-semibold">Sector</label>
+                        <select id="sector" th:field="*{sector}" class="form-select">
+                            <option value="">-- Sector --</option>
+                            <option value="Tecnología">Tecnología</option>
+                            <option value="Agricultura">Agricultura</option>
+                            <option value="Industria">Industria</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Educación">Educación</option>
+                            <option value="Salud">Salud</option>
+                            <option value="Medio ambiente">Medio ambiente</option>
+                            <option value="Cultura">Cultura</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <!-- Ubicación -->
+                    <div class="col-md-4">
+                        <label for="ubicacion" class="form-label fw-semibold">Ubicación</label>
+                        <input type="text" id="ubicacion" th:field="*{ubicacion}"
+                               class="form-control" placeholder="Nacional / Madrid...">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <!-- Fuente -->
+                    <div class="col-md-6">
+                        <label for="fuente" class="form-label fw-semibold">Fuente</label>
+                        <input type="text" id="fuente" th:field="*{fuente}"
+                               class="form-control" placeholder="Ej: BDNS, BOE, UE...">
+                    </div>
+                    <!-- Fecha de cierre -->
+                    <div class="col-md-6">
+                        <label for="fechaCierre" class="form-label fw-semibold">Fecha de cierre</label>
+                        <input type="date" id="fechaCierre" th:field="*{fechaCierre}" class="form-control">
+                    </div>
+                </div>
+
+                <!-- URL oficial -->
+                <div class="mb-4">
+                    <label for="urlOficial" class="form-label fw-semibold">URL oficial</label>
+                    <input type="url" id="urlOficial" th:field="*{urlOficial}"
+                           class="form-control"
+                           th:classappend="${#fields.hasErrors('urlOficial')} ? 'is-invalid'"
+                           placeholder="https://...">
+                    <div class="invalid-feedback" th:errors="*{urlOficial}"></div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a th:href="@{/admin/convocatorias}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-warning px-4">
+                        <span th:text="${convocatoriaId != null} ? 'Guardar cambios' : 'Crear convocatoria'">Guardar</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
+</body>
+</html>
+

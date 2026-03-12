@@ -1,0 +1,261 @@
+﻿<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntia – Dashboard</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        .puntuacion-alta   { color: #198754; }
+        .puntuacion-media  { color: #ffc107; }
+        .puntuacion-baja   { color: #6c757d; }
+        .roadmap-urgente   { border-left: 4px solid #dc3545 !important; }
+        .roadmap-proximo   { border-left: 4px solid #ffc107 !important; }
+        .roadmap-normal    { border-left: 4px solid #0d6efd !important; }
+    </style>
+</head>
+<body class="bg-light">
+
+<!-- Navbar -->
+<nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
+
+<div class="container py-5">
+
+    <!-- Saludo -->
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="mb-0 fw-bold">Bienvenido 👋</h2>
+            <p class="text-muted mb-0" th:text="${usuario.email}"></p>
+        </div>
+        <a th:href="@{/usuario/proyectos/nuevo}" class="btn btn-primary btn-sm align-self-start">
+            + Nuevo proyecto
+        </a>
+    </div>
+
+    <!-- ── MÉTRICAS RÁPIDAS ── -->
+    <div class="row g-3 mb-5">
+
+        <!-- Proyectos -->
+        <div class="col-6 col-md-4">
+            <div class="card shadow-sm text-center h-100 border-0">
+                <div class="card-body py-4">
+                    <div class="display-5 fw-bold text-primary"
+                         th:text="${#maps.size(topRecomendaciones)}">0</div>
+                    <div class="fw-semibold small mt-1">Proyectos</div>
+                    <div class="text-muted" style="font-size:0.75rem;">activos en tu cuenta</div>
+                </div>
+                <div class="card-footer bg-white border-0 pb-3">
+                    <a th:href="@{/usuario/proyectos}" class="btn btn-outline-primary btn-sm w-100">
+                        Gestionar proyectos
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recomendaciones totales -->
+        <div class="col-6 col-md-4">
+            <div class="card shadow-sm text-center h-100 border-0">
+                <div class="card-body py-4">
+                    <div class="display-5 fw-bold text-success"
+                         th:text="${totalRecomendaciones}">0</div>
+                    <div class="fw-semibold small mt-1">Recomendaciones</div>
+                    <div class="text-muted" style="font-size:0.75rem;">generadas por IA 🤖</div>
+                </div>
+                <div class="card-footer bg-white border-0 pb-3">
+                    <a th:href="@{/usuario/proyectos}" class="btn btn-outline-success btn-sm w-100">
+                        Ver proyectos
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Perfil -->
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm text-center h-100 border-0">
+                <div class="card-body py-4">
+                    <div class="fs-1">👤</div>
+                    <div class="fw-semibold small mt-1">Mi Perfil</div>
+                    <div class="text-muted" style="font-size:0.75rem;">información de tu entidad</div>
+                </div>
+                <div class="card-footer bg-white border-0 pb-3">
+                    <a th:href="@{/usuario/perfil}" class="btn btn-outline-secondary btn-sm w-100">
+                        Ver / Editar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── TOP RECOMENDACIONES POR PROYECTO ── -->
+    <section class="mb-5">
+        <h4 class="mb-1">🤖 Recomendaciones por Proyecto</h4>
+        <p class="text-muted small mb-3">Las mejores coincidencias encontradas por el motor de IA en la BDNS.</p>
+
+        <!-- Sin proyectos -->
+        <div th:if="${#maps.isEmpty(topRecomendaciones)}" class="card shadow-sm border-0">
+            <div class="card-body text-center py-5">
+                <div class="fs-1 mb-2">🚀</div>
+                <h5 class="fw-semibold mb-1">Empieza aquí</h5>
+                <p class="text-muted small mb-3">
+                    Para recibir recomendaciones personalizadas sigue estos pasos:
+                </p>
+                <div class="d-flex flex-column flex-md-row justify-content-center gap-2">
+                    <a th:href="@{/usuario/perfil}" class="btn btn-outline-secondary btn-sm">
+                        1️⃣ Completa tu perfil
+                    </a>
+                    <a th:href="@{/usuario/proyectos/nuevo}" class="btn btn-primary btn-sm">
+                        2️⃣ Crea tu primer proyecto
+                    </a>
+                </div>
+                <p class="text-muted mt-3 mb-0" style="font-size:0.78rem;">
+                    Después podrás pulsar <strong>Analizar con IA</strong> para obtener
+                    recomendaciones de subvenciones reales de la BDNS.
+                </p>
+            </div>
+        </div>
+
+        <!-- Bloque por proyecto -->
+        <div th:each="entrada : ${topRecomendaciones}" class="mb-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <span class="fw-semibold" th:text="${entrada.key.nombre}"></span>
+                    <span class="badge bg-secondary ms-2"
+                          th:if="${entrada.key.sector}"
+                          th:text="${entrada.key.sector}"></span>
+                    <span class="badge bg-info text-dark ms-1"
+                          th:if="${entrada.key.ubicacion}"
+                          th:text="${entrada.key.ubicacion}"></span>
+                </div>
+                <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${entrada.key.id})}"
+                   class="btn btn-outline-primary btn-sm">
+                    Ver todas →
+                </a>
+            </div>
+
+            <!-- Sin recomendaciones para este proyecto -->
+            <div th:if="${#lists.isEmpty(entrada.value)}" class="alert alert-light border small mb-0">
+                Sin recomendaciones aún.
+                <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${entrada.key.id})}">
+                    Generar ahora
+                </a>
+            </div>
+
+            <!-- Top recomendaciones -->
+            <div class="list-group shadow-sm" th:if="${!#lists.isEmpty(entrada.value)}">
+                <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                     th:each="rec : ${entrada.value}">
+                    <div class="flex-grow-1 me-3">
+                        <div class="fw-semibold small" th:text="${rec.titulo}"></div>
+                        <div>
+                            <span class="badge bg-primary me-1 small" th:if="${rec.tipo}" th:text="${rec.tipo}"></span>
+                            <span class="badge bg-light text-dark border small" th:if="${rec.fuente}" th:text="${rec.fuente}"></span>
+                        </div>
+                    </div>
+                    <div class="text-center" style="min-width:60px;">
+                        <div class="fw-bold"
+                             th:classappend="${rec.puntuacion >= 70} ? 'puntuacion-alta' : (${rec.puntuacion >= 40} ? 'puntuacion-media' : 'puntuacion-baja')"
+                             th:text="${rec.puntuacion} + '/100'">
+                        </div>
+                        <div class="progress mt-1" style="height:4px;">
+                            <div class="progress-bar"
+                                 th:classappend="${rec.puntuacion >= 70} ? 'bg-success' : (${rec.puntuacion >= 40} ? 'bg-warning' : 'bg-secondary')"
+                                 th:style="'width:' + ${rec.puntuacion} + '%'">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /bloque proyecto -->
+    </section>
+
+    <!-- ── ROADMAP ESTRATÉGICO ── -->
+    <section class="mb-5">
+        <h4 class="mb-1">🗓 Roadmap Estratégico</h4>
+        <p class="text-muted small mb-3">
+            Convocatorias activas ordenadas por urgencia. Las que tienen fecha límite aparecen primero.
+        </p>
+
+        <div th:if="${#lists.isEmpty(roadmap)}" class="card shadow-sm border-0">
+            <div class="card-body text-center py-4 text-muted small">
+                No hay convocatorias en el roadmap todavía.<br>
+                Genera recomendaciones en tus proyectos para verlas aquí.
+            </div>
+        </div>
+
+        <div class="list-group shadow-sm" th:if="${!#lists.isEmpty(roadmap)}">
+            <div th:each="item : ${roadmap}"
+                 class="list-group-item list-group-item-action p-3"
+                 th:classappend="${item.recomendacion().fechaCierre != null and item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(15))} ? 'roadmap-urgente' :
+                                 (${item.recomendacion().fechaCierre != null and item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'roadmap-proximo' : 'roadmap-normal')">
+
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small" th:text="${item.recomendacion().titulo}"></div>
+                        <div class="text-muted" style="font-size:.78rem;">
+                            Proyecto:
+                            <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${item.proyecto().id})}"
+                               th:text="${item.proyecto().nombre}" class="text-decoration-none"></a>
+                        </div>
+                        <div class="mt-1 d-flex flex-wrap gap-1">
+                            <span class="badge bg-primary" th:if="${item.recomendacion().tipo}"
+                                  th:text="${item.recomendacion().tipo}"></span>
+                            <span class="badge bg-secondary" th:if="${item.recomendacion().sector}"
+                                  th:text="${item.recomendacion().sector}"></span>
+                        </div>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        <!-- Con fecha de cierre -->
+                        <div th:if="${item.recomendacion().fechaCierre != null}"
+                             class="small fw-bold"
+                             th:classappend="${item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(15))} ? 'text-danger' :
+                                             (${item.recomendacion().fechaCierre.isBefore(#temporals.createNow().toLocalDate().plusDays(30))} ? 'text-warning' : 'text-muted')">
+                            ⏰ Cierra:
+                            <span th:text="${#temporals.format(item.recomendacion().fechaCierre, 'dd/MM/yyyy')}"></span>
+                        </div>
+                        <!-- Sin fecha de cierre -->
+                        <div th:if="${item.recomendacion().fechaCierre == null}"
+                             class="small text-success fw-semibold">
+                            ✅ Convocatoria abierta
+                        </div>
+                        <!-- Puntuación -->
+                        <div class="small mt-1"
+                             th:classappend="${item.recomendacion().puntuacion >= 70} ? 'puntuacion-alta' : 'puntuacion-media'"
+                             th:text="'Compatibilidad: ' + ${item.recomendacion().puntuacion} + '/100'">
+                        </div>
+                        <!-- Botones -->
+                        <div class="d-flex gap-1 mt-1 justify-content-end">
+                            <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${item.proyecto().id})}"
+                               class="btn btn-outline-secondary btn-sm" style="font-size:.72rem;">
+                                Ver guía
+                            </a>
+                            <a th:if="${item.recomendacion().urlOficial}"
+                               th:href="${item.recomendacion().urlOficial}"
+                               target="_blank" rel="noopener noreferrer"
+                               class="btn btn-outline-primary btn-sm" style="font-size:.72rem;">
+                                Oficial ↗
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── AVISO LEGAL ── -->
+    <div class="alert alert-secondary small mt-4" role="alert">
+        <strong>Aviso legal:</strong> Las recomendaciones de Syntia se basan en información pública disponible
+        y tienen carácter exclusivamente orientativo. Verifica siempre los requisitos oficiales antes de
+        presentar cualquier solicitud.
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/javascript/dashboard.js}"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
+</body>
+</html>
+

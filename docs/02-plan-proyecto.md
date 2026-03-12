@@ -39,9 +39,23 @@ Planificar y organizar el desarrollo del MVP de Syntia asegurando una ejecución
 - **Coordinador de Proyecto:** gestión de cronograma, recursos y comunicación.
 
 ### 5.2. Tecnológicos
-- **Lenguajes:** Java, HTML, CSS, JavaScript.
-- **Frameworks:** Spring Boot, Thymeleaf.
-- **Infraestructura:** Servidor en la nube para despliegue.
+
+| Categoría | Tecnología |
+|-----------|------------|
+| Lenguaje | Java 17 (LTS) |
+| Framework principal | Spring Boot 3.5.x |
+| Seguridad | Spring Security 6.x + JWT (jjwt 0.12.x) |
+| Persistencia | Spring Data JPA + Hibernate |
+| Motor de plantillas | Thymeleaf + Thymeleaf Extras Security 6 |
+| Frontend | HTML5, CSS3, JavaScript, Bootstrap 5 |
+| Motor IA | OpenAI Chat Completions API (gpt-4.1) + fallback rule-based |
+| Streaming | Server-Sent Events (SSE) con SseEmitter + CompletableFuture |
+| Fuente de datos | API pública BDNS (Base de Datos Nacional de Subvenciones) |
+| Base de datos | PostgreSQL 17.2 |
+| Validación | Spring Boot Starter Validation (Bean Validation) |
+| Utilidades | Lombok |
+| Control de versiones | Git (repositorio: https://github.com/daniicg05/Syntia.git) |
+| Infraestructura | Servidor en la nube para despliegue (Tomcat embebido, puerto 8080) |
 
 ### 5.3. Económicos
 - Presupuesto estimado para servidores, licencias y recursos iniciales.
@@ -61,4 +75,7 @@ Planificar y organizar el desarrollo del MVP de Syntia asegurando una ejecución
 ## 8. Suposiciones y Dependencias
 - Acceso estable a internet por parte de los usuarios.
 - Disponibilidad de entorno de pruebas y servicios en la nube.
+- PostgreSQL 17.2 disponible en puerto `5432` con BD `syntia_db` (usuario: `syntia`, contraseña: `syntia`).
+- Repositorio Git centralizado en: https://github.com/daniicg05/Syntia.git
+- Java 17+ instalado en el entorno de desarrollo.
 

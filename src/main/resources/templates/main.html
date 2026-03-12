@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntia — Subvenciones públicas con IA</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a4fbf 60%, #063899 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-card {
+            background: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+            padding: 3rem 3.5rem;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .logo-icon {
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .brand-name {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #0d6efd;
+            letter-spacing: -1px;
+        }
+
+        .brand-tagline {
+            color: #6c757d;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .feature-list {
+            text-align: left;
+            background: #f8f9ff;
+            border-radius: 0.75rem;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .feature-list li {
+            color: #495057;
+            font-size: 0.9rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .btn-acceder {
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 0.75rem 2.5rem;
+            border-radius: 0.75rem;
+            width: 100%;
+            margin-bottom: 0.75rem;
+        }
+
+        .divider {
+            color: #adb5bd;
+            font-size: 0.85rem;
+            margin: 0.5rem 0 1rem;
+        }
+
+        .footer-legal {
+            color: #adb5bd;
+            font-size: 0.75rem;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-card">
+
+        <!-- Logo y nombre -->
+        <div class="logo-icon">🤖</div>
+        <div class="brand-name">Syntia</div>
+        <p class="brand-tagline">Tu asistente inteligente de subvenciones públicas</p>
+
+        <!-- Características -->
+        <ul class="feature-list list-unstyled">
+            <li>🔎 Búsqueda directa en la BDNS (Base de Datos Nacional de Subvenciones)</li>
+            <li>🤖 Evaluación con IA — puntuación y compatibilidad personalizada</li>
+            <li>📋 Guía de solicitud paso a paso con base legal (LGS 38/2003)</li>
+            <li>🗺️ Galería visual interactiva con el flujo real de cada portal</li>
+        </ul>
+
+        <!-- Botón principal → entry point anterior (login) -->
+        <a href="/login" class="btn btn-primary btn-acceder">
+            Acceder a Syntia
+        </a>
+
+        <div class="divider">¿Aún no tienes cuenta?</div>
+
+        <!-- Enlace secundario → registro -->
+        <a href="/registro" class="btn btn-outline-primary w-100" style="border-radius:0.75rem;">
+            Crear cuenta gratuita
+        </a>
+
+        <!-- Aviso legal -->
+        <p class="footer-legal">
+            Al acceder aceptas el
+            <a href="/aviso-legal" class="text-muted">aviso legal</a>.
+            Las recomendaciones tienen carácter orientativo.
+        </p>
+
+    </div>
+
+    <script th:src="@{/bootstrap/bootstrap.bundle.min.js}"></script>
+</body>
+</html>
+

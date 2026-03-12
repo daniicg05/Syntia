@@ -1,0 +1,141 @@
+﻿<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Syntia – ' + ${proyecto.nombre}">Syntia – Proyecto</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+    <style>
+        .tip-ia { background: linear-gradient(135deg,#e8f4fd,#f0f7ff); border-left: 3px solid #0d6efd; }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav th:replace="~{fragments/navbar-usuario :: navbar-usuario}"></nav>
+
+<div class="container py-5" style="max-width: 800px;">
+
+    <!-- Migas de pan -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/usuario/dashboard}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a th:href="@{/usuario/proyectos}">Mis Proyectos</a></li>
+            <li class="breadcrumb-item active" th:text="${proyecto.nombre}"></li>
+        </ol>
+    </nav>
+
+    <!-- Cabecera -->
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="mb-1 fw-bold" th:text="${proyecto.nombre}"></h2>
+            <div class="d-flex flex-wrap gap-1">
+                <span class="badge bg-primary" th:if="${proyecto.sector}" th:text="${proyecto.sector}"></span>
+                <span class="badge bg-info text-dark" th:if="${proyecto.ubicacion}" th:text="${proyecto.ubicacion}"></span>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a th:href="@{/usuario/proyectos/{id}/editar(id=${proyecto.id})}"
+               class="btn btn-outline-secondary btn-sm">✏️ Editar</a>
+            <form th:action="@{/usuario/proyectos/{id}/eliminar(id=${proyecto.id})}"
+                  method="post" onsubmit="return confirm('¿Eliminar este proyecto? Se borrarán también sus recomendaciones.');">
+                <button type="submit" class="btn btn-outline-danger btn-sm">🗑 Eliminar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alertas flash -->
+    <div th:if="${exito}" class="alert alert-success alert-dismissible fade show">
+        <span th:text="${exito}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Acción principal: Analizar con IA -->
+    <div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg,#0d6efd,#0a58ca); color:white;">
+        <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h5 class="mb-1 fw-bold">🤖 Motor de Recomendaciones IA</h5>
+                <p class="mb-0 small" style="opacity:.85;">
+                    La IA leerá el contenido oficial de cada convocatoria de la BDNS
+                    y generará una guía de solicitud personalizada para tu proyecto.
+                </p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a th:href="@{/usuario/proyectos/{id}/recomendaciones(id=${proyecto.id})}"
+                   class="btn btn-light btn-sm fw-semibold">
+                    Ver recomendaciones →
+                </a>
+                <form th:action="@{/usuario/proyectos/{id}/recomendaciones/generar(id=${proyecto.id})}"
+                      method="post" class="m-0">
+                    <button type="submit" class="btn btn-warning btn-sm fw-semibold">
+                        ⚡ Analizar con IA
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datos del proyecto -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold border-0 pb-0">Datos del proyecto</div>
+        <div class="card-body p-4">
+            <dl class="row mb-0">
+                <dt class="col-sm-3 text-muted small fw-semibold text-uppercase">Nombre</dt>
+                <dd class="col-sm-9 mb-3" th:text="${proyecto.nombre}"></dd>
+
+                <dt class="col-sm-3 text-muted small fw-semibold text-uppercase">Sector</dt>
+                <dd class="col-sm-9 mb-3">
+                    <span th:if="${proyecto.sector}" class="badge bg-primary fw-normal fs-6"
+                          th:text="${proyecto.sector}"></span>
+                    <span th:unless="${proyecto.sector}" class="text-muted fst-italic small">No indicado</span>
+                </dd>
+
+                <dt class="col-sm-3 text-muted small fw-semibold text-uppercase">Ubicación</dt>
+                <dd class="col-sm-9 mb-3">
+                    <span th:if="${proyecto.ubicacion}" class="badge bg-info text-dark fw-normal fs-6"
+                          th:text="${proyecto.ubicacion}"></span>
+                    <span th:unless="${proyecto.ubicacion}" class="text-muted fst-italic small">No indicada</span>
+                </dd>
+
+                <dt class="col-sm-3 text-muted small fw-semibold text-uppercase">Descripción</dt>
+                <dd class="col-sm-9 mb-0">
+                    <p th:if="${proyecto.descripcion != null and !#strings.isEmpty(proyecto.descripcion)}"
+                       class="mb-0" th:text="${proyecto.descripcion}"></p>
+                    <span th:unless="${proyecto.descripcion != null and !#strings.isEmpty(proyecto.descripcion)}"
+                          class="text-muted fst-italic small">
+                        Sin descripción —
+                        <a th:href="@{/usuario/proyectos/{id}/editar(id=${proyecto.id})}">añádela para mejorar la IA</a>
+                    </span>
+                </dd>
+            </dl>
+        </div>
+        <div class="card-footer bg-white border-0">
+            <a th:href="@{/usuario/proyectos/{id}/editar(id=${proyecto.id})}"
+               class="btn btn-outline-primary btn-sm">✏️ Editar proyecto</a>
+        </div>
+    </div>
+
+    <!-- Consejo si falta descripción -->
+    <div th:if="${proyecto.descripcion == null or #strings.isEmpty(proyecto.descripcion)}"
+         class="tip-ia rounded p-3 mb-4 small">
+        <strong>💡 Mejora tus resultados:</strong>
+        Añade una <strong>descripción detallada</strong> del proyecto. La IA la usa junto con el
+        contenido oficial de la BDNS para generar requisitos y una guía de solicitud exacta.
+    </div>
+
+    <!-- Acciones secundarias -->
+    <div class="d-flex gap-2 flex-wrap">
+        <a th:href="@{/usuario/proyectos}" class="btn btn-outline-secondary btn-sm">
+            ← Volver a Mis Proyectos
+        </a>
+        <a th:href="@{/usuario/dashboard}" class="btn btn-outline-secondary btn-sm">
+            Dashboard
+        </a>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
+</body>
+</html>
+

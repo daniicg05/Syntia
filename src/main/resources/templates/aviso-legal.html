@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntia – Aviso Legal</title>
+    <link rel="stylesheet" th:href="@{/bootstrap/bootstrap.min.css}">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-primary px-4">
+    <a th:href="@{/}" class="navbar-brand fw-bold text-decoration-none">Syntia</a>
+</nav>
+
+<div class="container py-5" style="max-width: 860px;">
+
+    <h1 class="mb-4">Aviso Legal</h1>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">1. Información general</h5>
+            <p class="card-text">
+                Syntia MVP es una plataforma de carácter orientativo que facilita a emprendedores,
+                autónomos y PYMEs el acceso a información sobre subvenciones, ayudas y licitaciones
+                públicas disponibles en España. Los datos mostrados proceden de fuentes públicas y
+                tienen exclusivamente carácter informativo.
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">2. Limitación de responsabilidad</h5>
+            <p class="card-text">
+                Las recomendaciones generadas por el motor de Syntia (incluyendo las asistidas por
+                inteligencia artificial) son orientativas y no constituyen asesoramiento legal,
+                financiero ni administrativo. Syntia no garantiza la exactitud, vigencia ni
+                completitud de la información presentada.
+            </p>
+            <p class="card-text">
+                El usuario es el único responsable de verificar los requisitos, plazos y
+                condiciones de cada convocatoria en las fuentes oficiales antes de presentar
+                cualquier solicitud.
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">3. Protección de datos</h5>
+            <p class="card-text">
+                Los datos personales facilitados al registrarse (email) y la información del perfil
+                (sector, ubicación, objetivos) se utilizan exclusivamente para generar recomendaciones
+                personalizadas dentro de la plataforma. No se comparten con terceros ni se utilizan
+                con fines comerciales.
+            </p>
+            <p class="card-text">
+                El usuario puede solicitar en cualquier momento la eliminación de su cuenta y sus
+                datos contactando a través de los canales disponibles en la plataforma.
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">4. Fuentes de datos</h5>
+            <p class="card-text">
+                Las convocatorias pueden proceder de fuentes como la Base de Datos Nacional de
+                Subvenciones (BDNS), boletines oficiales (BOE, BOE autonómicos), y otras fuentes
+                públicas. Syntia no es responsable de los contenidos alojados en sitios externos
+                a los que enlaza.
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">5. Análisis por inteligencia artificial</h5>
+            <p class="card-text">
+                Algunas recomendaciones son analizadas mediante modelos de lenguaje de OpenAI
+                (indicado con el badge <strong>🤖 Analizado por IA</strong>). Estos análisis
+                son automáticos y pueden contener imprecisiones. Syntia no se responsabiliza de
+                los resultados generados por modelos de IA.
+            </p>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            ← Volver
+        </a>
+    </div>
+
+</div>
+
+<footer class="bg-white border-top mt-5 py-3">
+    <div class="container text-center">
+        <span class="text-muted small">
+            &copy; <span th:text="${#dates.year(#dates.createNow())}">2026</span> Syntia MVP
+        </span>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
