@@ -30,7 +30,7 @@
 |----------|-----------|---------|
 | **`spring-dotenv` no documentado** | `03-especificaciones-tecnicas.md` §2.1 | El `pom.xml` incluye `me.paulschwarz:spring-dotenv:4.0.0` pero no aparece en la tabla de dependencias Maven. |
 | **`openai.max-tokens` inconsistente** | `05-changelog.md` vs `application.properties` | El changelog v2.3.0 dice "reducido de 400 a 150", pero `application.properties` actual tiene `openai.max-tokens=800`. No coincide. |
-| **Modelo OpenAI en prod** | `application-prod.properties` | Usa `openai.model=${OPENAI_MODEL:gpt-4o-mini}` como fallback, pero en desarrollo es `gpt-4.1`. La documentación no menciona esta discrepancia. |
+| **Modelo OpenAI en prod** | `application-prod.properties` | Usa `openai.model=${OPENAI_MODEL:gpt-4.1}` como fallback, alineado con desarrollo. |
 | **Constantes del motor** | `07-fases-implementacion.md` | Documenta `MAX_CANDIDATAS_IA=20`, pero el código real usa `MAX_CANDIDATAS_IA=30`, `RESULTADOS_POR_KEYWORD=25`, `UMBRAL_RECOMENDACION=10`. |
 | **`ConvocatoriaInitializer.java`** | `03-especificaciones-tecnicas.md` §6 | No aparece en la estructura de paquetes documentada, pero existe en `config/`. |
 | **`data-test.sql` eliminado** | `07-fases-implementacion.md` | Se marca como "eliminado", pero `04-manual-desarrollo.md` §8.5 aún referencia credenciales del script. |
